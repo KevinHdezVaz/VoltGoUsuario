@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:Voltgo_User/data/models/User/user_model.dart';
+import 'package:Voltgo_User/data/services/GoogleService.dart';
 import 'package:Voltgo_User/l10n/app_localizations.dart';
+import 'package:Voltgo_User/ui/login/CompleteProfileScreen.dart';
 import 'package:Voltgo_User/ui/login/add_vehicle_screen.dart';
-import 'package:Voltgo_User/utils/bottom_nav.dart';
+import 'package:Voltgo_User/utils/TokenStorage.dart';
+ import 'package:Voltgo_User/utils/bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:Voltgo_User/data/services/auth_api_service.dart';
 import 'package:Voltgo_User/ui/MenuPage/DashboardScreen.dart';
@@ -11,6 +14,7 @@ import 'package:Voltgo_User/ui/login/ForgotPasswordScreen.dart';
 import 'package:Voltgo_User/ui/login/RegisterScreen.dart';
 import 'package:Voltgo_User/utils/AnimatedTruckProgress.dart';
 import 'package:Voltgo_User/utils/encryption_utils.dart';
+import 'dart:developer' as developer; // ✅ AGREGAR IMPORT
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -22,9 +26,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   bool _isPasswordVisible = false;
-  final _emailController =
-      TextEditingController(); // Antes se llamaba _usernameController
-
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isButtonEnabled = false;
   bool _isLoading = false;
@@ -33,8 +35,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
-    _emailController.addListener(_updateButtonState); // Usa el nuevo nombre
-
+    _emailController.addListener(_updateButtonState);
     _passwordController.addListener(_updateButtonState);
     _animationController =
         AnimationController(vsync: this, duration: const Duration(seconds: 4));
@@ -42,6 +43,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
+    _emailController.dispose();
     _passwordController.dispose();
     _animationController.dispose();
     super.dispose();
@@ -55,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _login() async {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     if (!_isButtonEnabled || _isLoading) return;
 
@@ -63,9 +65,8 @@ class _LoginScreenState extends State<LoginScreen>
     _animationController.repeat();
 
     try {
-      // La llamada a tu servicio ya guarda el token, ¡eso está perfecto!
       final loginResponse = await AuthService.login(
-        email: _emailController.text.trim(), // <-- CAMBIA AQUÍ
+        email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
@@ -74,13 +75,10 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (loginResponse.token.isNotEmpty && loginResponse.user != null) {
         _navigateAfterAuth(loginResponse.user!);
-
-        // ▲▲▲ FIN DEL CAMBIO ▲▲▲
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(loginResponse.error ??
-                l10n.incorrectUserPassword), // ✅ CAMBIAR de 'Usuario o contraseña incorrectos'
+            content: Text(loginResponse.error ?? l10n.incorrectUserPassword),
           ),
         );
       }
@@ -89,8 +87,7 @@ class _LoginScreenState extends State<LoginScreen>
         _animationController.stop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n
-                .serverConnectionError), // ✅ CAMBIAR de 'Error de conexión con el servidor'
+            content: Text(l10n.serverConnectionError),
           ),
         );
       }
@@ -101,37 +98,143 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-// Añade esta función dentro de tu _RegisterScreenState y _LoginScreenState
+  // En tu LoginScreen, actualiza el método _navigateAfterAuth:
 
-  void _navigateAfterAuth(UserModel user) {
-    if (user.hasRegisteredVehicle) {
-      // Si ya tiene vehículo, va a la pantalla principal
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const BottomNavBar()),
-        (route) => false,
-      );
-    } else {
-      // Si NO tiene vehículo, muestra la pantalla de registro de vehículo
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AddVehicleScreen(
-            onVehicleAdded: () {
-              // Este callback se ejecuta cuando el usuario guarda el vehículo
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const BottomNavBar()),
-                (route) => false,
-              );
-            },
-          ),
+void _navigateAfterAuth(UserModel user) {
+  // ✅ VERIFICAR SI EL PERFIL ESTÁ COMPLETO
+  if (!_isProfileComplete(user)) {
+    // Si el perfil no está completo, ir a CompleteProfileScreen
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CompleteProfileScreen(
+          user: user,
+          token: TokenStorage.getToken().toString(), // Asegurar que tienes el token
         ),
-        (route) => false,
-      );
+      ),
+      (route) => false,
+    );
+    return;
+  }
+
+  // ✅ SI EL PERFIL ESTÁ COMPLETO, VERIFICAR VEHÍCULO
+  if (user.hasRegisteredVehicle) {
+    // Si ya tiene vehículo, va a la pantalla principal
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const BottomNavBar()),
+      (route) => false,
+    );
+  } else {
+    // Si NO tiene vehículo, muestra la pantalla de registro de vehículo
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddVehicleScreen(
+          onVehicleAdded: () {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const BottomNavBar()),
+              (route) => false,
+            );
+          },
+        ),
+      ),
+      (route) => false,
+    );
+  }
+}
+
+// ✅ AGREGAR ESTE MÉTODO HELPER EN LoginScreen
+bool _isProfileComplete(UserModel user) {
+  return user.name.trim().isNotEmpty &&
+         user.email.trim().isNotEmpty &&
+         user.phone != null &&
+         user.phone!.trim().isNotEmpty;
+}
+
+
+  // ✅ NUEVO: Método para Google Sign In con navegación a CompleteProfile
+  Future<void> _signInWithGoogle() async {
+    final l10n = AppLocalizations.of(context);
+    
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+    _animationController.repeat();
+
+    try {
+      developer.log('Iniciando Google Sign In...');
+      
+      final result = await GoogleAuthService.signInWithGoogle();
+      
+      _animationController.stop();
+      if (!mounted) return;
+
+      if (result.success && result.user != null && result.token != null) {
+        developer.log('Google Sign In exitoso');
+        
+        // Crear modelo de usuario desde la respuesta
+        final userMap = result.user!;
+        final userModel = UserModel.fromJson(userMap);
+        
+        // ✅ VERIFICAR SI NECESITA COMPLETAR PERFIL
+        final phone = userMap['phone'];
+        
+        if (phone == null || phone.toString().trim().isEmpty) {
+          developer.log('Usuario necesita completar perfil - redirigiendo a CompleteProfileScreen');
+          
+          // Usuario necesita completar su perfil (agregar teléfono)
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CompleteProfileScreen(
+                user: userModel,
+                token: result.token!,
+              ),
+            ),
+            (route) => false,
+          );
+        } else {
+          developer.log('Usuario ya tiene perfil completo - navegando normalmente');
+          
+          // Usuario ya tiene toda la información necesaria
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.welcomeBack),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          _navigateAfterAuth(userModel);
+        }
+      } else {
+        // Error en Google Sign In
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? l10n.errorOccurred),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      _animationController.stop();
+      developer.log('Excepción en Google Sign In: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${l10n.errorOccurred}: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -150,11 +253,8 @@ class _LoginScreenState extends State<LoginScreen>
                     _buildHeader(),
                     const SizedBox(height: 40),
                     _buildForm(),
-                    // ▼▼▼ MODIFICADO: Espaciado ajustado ▼▼▼
                     const SizedBox(height: 24),
-                    // ▼▼▼ NUEVO: Widget para los botones de login social ▼▼▼
                     _buildSocialLogins(),
-                    // ▼▼▼ MODIFICADO: Espaciado ajustado ▼▼▼
                     const SizedBox(height: 24),
                     _buildFooter(),
                     const SizedBox(height: 40),
@@ -174,9 +274,9 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ▼▼▼ NUEVO: Widget para mostrar botones de Google y Apple ▼▼▼
+  // ✅ ACTUALIZADO: _buildSocialLogins con Google funcional
   Widget _buildSocialLogins() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       children: [
@@ -186,7 +286,7 @@ class _LoginScreenState extends State<LoginScreen>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Text(
-                l10n.or, // ✅ CAMBIAR de 'O'
+                l10n.or,
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -197,37 +297,35 @@ class _LoginScreenState extends State<LoginScreen>
           ],
         ),
         const SizedBox(height: 24),
-        // Botón de Google
+        // ✅ Botón de Google - FUNCIONAL
         _buildSocialButton(
           assetName: 'assets/images/gugel.png',
-          text:
-              l10n.signInWithGoogle, // ✅ CAMBIAR de 'Iniciar sesión con Google'
-          onPressed: () {
-            print('Login con Google presionado');
-          },
+          text: l10n.signInWithGoogle,
+          onPressed: _isLoading ? null : _signInWithGoogle, // ← Conectar aquí
         ),
         const SizedBox(height: 12),
         // Botón de Apple
         _buildSocialButton(
           assetName: 'assets/images/appell.png',
-          // MODIFICADO: Texto del botón
-          text: l10n.signInWithApple, // ✅ CAMBIAR de 'Iniciar sesión con Apple'
+          text: l10n.signInWithApple,
           backgroundColor: Colors.blueGrey,
           textColor: Colors.white,
-          onPressed: () {
-            // TODO: Implementar la lógica de inicio de sesión con Apple
-            print('Login con Apple presionado');
+          onPressed: _isLoading ? null : () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Apple Sign In próximamente'),
+              ),
+            );
           },
         ),
       ],
     );
   }
 
-  // ▼▼▼ NUEVO: Helper para crear botones de login social genéricos ▼▼▼
   Widget _buildSocialButton({
     required String assetName,
     required String text,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     Color? backgroundColor,
     Color? textColor,
   }) {
@@ -256,8 +354,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // --- Widgets existentes (con pequeñas modificaciones) ---
-
   Widget _buildBackground(BuildContext context) {
     return Stack(children: [
       Positioned(
@@ -267,7 +363,7 @@ class _LoginScreenState extends State<LoginScreen>
           'assets/images/rectangle3.png',
           width: MediaQuery.of(context).size.width * 0.5,
           fit: BoxFit.contain,
-          color: AppColors.primary, // Color que quieras aplicar
+          color: AppColors.primary,
           colorBlendMode: BlendMode.srcIn,
         ),
       ),
@@ -275,18 +371,18 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildHeader() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Center(
       child: Column(
         children: [
           Image.asset(
-            'assets/images/logoapp.png', // Asegúrate de tener esta imagen en tus assets
-            height: 160, // Ajusta el tamaño según tu logo
+            'assets/images/logoapp.png',
+            height: 160,
           ),
           const SizedBox(height: 16),
           Text(
-            l10n.welcomeUser, // ✅ CAMBIAR de 'Bienvenido Usuario'
+            l10n.welcomeUser,
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -299,15 +395,14 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildForm() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildTextField(
-          label: l10n.email, // ✅ CAMBIAR de 'Correo electrónico'
-          hint:
-              l10n.enterEmail, // ✅ CAMBIAR de 'Ingresa tu correo electronico.'
+          label: l10n.email,
+          hint: l10n.enterEmail,
           controller: _emailController,
         ),
         const SizedBox(height: 20),
@@ -340,7 +435,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildFooter() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       children: [
@@ -354,8 +449,7 @@ class _LoginScreenState extends State<LoginScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(l10n.noAccount, // ✅ CAMBIAR de '¿No tienes una cuenta? '
-
+              Text(l10n.noAccount,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -414,10 +508,10 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildPasswordField({required TextEditingController controller}) {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(l10n.password, // ✅ CAMBIAR de 'Contraseña'
+      Text(l10n.password,
           style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 16,
@@ -427,8 +521,7 @@ class _LoginScreenState extends State<LoginScreen>
           controller: controller,
           obscureText: !_isPasswordVisible,
           decoration: InputDecoration(
-              hintText:
-                  l10n.enterPassword, // ✅ CAMBIAR de 'Ingresa tu contraseña'
+              hintText: l10n.enterPassword,
               filled: true,
               fillColor: AppColors.lightGrey.withOpacity(0.5),
               border: OutlineInputBorder(

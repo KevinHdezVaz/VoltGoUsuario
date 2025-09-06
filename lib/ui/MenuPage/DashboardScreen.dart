@@ -2,12 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:Voltgo_User/data/logic/dashboard/DashboardLogic.dart';
 import 'package:Voltgo_User/data/models/User/ServiceRequestModel.dart';
+import 'package:Voltgo_User/data/models/User/user_model.dart';
 import 'package:Voltgo_User/data/services/ChatService.dart';
+import 'package:Voltgo_User/data/services/ProfileCompletionService.dart';
 import 'package:Voltgo_User/data/services/ServiceChatScreen.dart';
 import 'package:Voltgo_User/data/services/ServiceRequestService.dart';
 import 'package:Voltgo_User/data/services/UserService.dart';
+import 'package:Voltgo_User/data/services/auth_api_service.dart';
 import 'package:Voltgo_User/l10n/app_localizations.dart';
 import 'package:Voltgo_User/ui/MenuPage/ClientRealTimeTrackingWidget.dart';
+import 'package:Voltgo_User/ui/login/CompleteProfileScreen.dart';
 import 'package:Voltgo_User/utils/TokenStorage.dart';
 import 'package:Voltgo_User/utils/constants.dart';
 import 'package:flutter/material.dart';
@@ -1317,35 +1321,91 @@ class _PassengerMapScreenState extends State<PassengerMapScreen>
     );
   }
 
-  Future<void> _checkVehicleRegistration() async {
-    print('🔍 Iniciando verificación de vehículo registrado...');
-    setState(() => _isCheckingVehicle = true);
+ 
+ // Reemplazar el método _checkVehicleRegistration existente con este:
 
-    try {
-      // ✅ USAR EL MÉTODO CON FALLBACK
-      final hasVehicle = await UserService.hasRegisteredVehicleWithFallback();
-      print('📡 Respuesta final del UserService: hasVehicle = $hasVehicle');
 
-      setState(() {
-        _hasVehicleRegistered = hasVehicle;
-        _isCheckingVehicle = false;
-      });
+// Actualiza tu método _checkVehicleRegistration en PassengerMapScreen
 
-      if (!hasVehicle) {
-        print('⚠️ Usuario no tiene vehículo registrado, mostrando diálogo...');
+Future<void> _checkVehicleRegistration() async {
+  print('🔍 Iniciando verificación completa del usuario...');
+  setState(() => _isCheckingVehicle = true);
+
+  try {
+    // 1. ✅ NUEVA VERIFICACIÓN: Verificar si el perfil está completo PRIMERO
+    print('👤 Verificando completitud del perfil...');
+    final profileCheck = await ProfileCompletionService.checkIfProfileNeedsCompletion();
+    
+    if (profileCheck.needsCompletion && profileCheck.user != null) {
+      print('⚠️ Perfil del usuario incompleto - falta información');
+      setState(() => _isCheckingVehicle = false);
+      
+      // Obtener token para pasar a CompleteProfileScreen
+      final token = await TokenStorage.getToken();
+      if (token != null) {
+        print('🔄 Navegando a CompleteProfileScreen...');
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _navigateToVehicleRegistration();
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CompleteProfileScreen(
+                user: profileCheck.user!,
+                token: token,
+              ),
+            ),
+            (route) => false, // Eliminar todas las rutas anteriores
+          );
         });
       } else {
-        print('✅ Usuario tiene vehículo registrado, inicializando mapa...');
-        _initializeMap();
+        print('❌ No se encontró token de autenticación');
+        _showVehicleRegistrationDialog();
       }
-    } catch (e) {
-      print('❌ Error verificando vehículo: $e');
-      setState(() => _isCheckingVehicle = false);
-      _showVehicleRegistrationDialog();
+      return;
     }
+
+    print('✅ Perfil del usuario completo, verificando vehículo...');
+
+    // 2. ✅ VERIFICAR VEHÍCULO REGISTRADO (como antes)
+    final hasVehicle = await UserService.hasRegisteredVehicleWithFallback();
+    print('📡 Respuesta final del UserService: hasVehicle = $hasVehicle');
+
+    setState(() {
+      _hasVehicleRegistered = hasVehicle;
+      _isCheckingVehicle = false;
+    });
+
+    if (!hasVehicle) {
+      print('⚠️ Usuario no tiene vehículo registrado, mostrando diálogo...');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigateToVehicleRegistration();
+      });
+    } else {
+      print('✅ Usuario tiene perfil completo y vehículo registrado, inicializando mapa...');
+      _initializeMap();
+    }
+  } catch (e) {
+    print('❌ Error en verificación completa: $e');
+    setState(() => _isCheckingVehicle = false);
+    _showVehicleRegistrationDialog();
   }
+}
+
+
+// ✅ NUEVO: Método para verificar si el perfil del usuario está completo
+bool _isUserProfileComplete(UserModel user) {
+  // Verificar que tenga todos los campos obligatorios
+  final hasPhone = user.phone != null && user.phone!.trim().isNotEmpty;
+  final hasName = user.name.trim().isNotEmpty;
+  final hasEmail = user.email.trim().isNotEmpty;
+  
+  print('📋 Verificando completitud del perfil:');
+  print('  - Nombre: ${hasName ? "✅" : "❌"} (${user.name})');
+  print('  - Email: ${hasEmail ? "✅" : "❌"} (${user.email})');
+  print('  - Teléfono: ${hasPhone ? "✅" : "❌"} (${user.phone ?? "null"})');
+  
+  return hasPhone && hasName && hasEmail;
+}
+
 
 // ✅ AGREGAR método de debugging para verificar estado
   void _debugVehicleStatus() async {
@@ -3189,20 +3249,93 @@ class _PassengerMapScreenState extends State<PassengerMapScreen>
     }
   }
 
+  
   void _handleAppResumed() async {
-    if (_lastBackgroundTime == null) return;
+  if (_lastBackgroundTime == null) return;
 
-    final timeInBackground = DateTime.now().difference(_lastBackgroundTime!);
+  final timeInBackground = DateTime.now().difference(_lastBackgroundTime!);
+  
+  print('📱 App regresó del background después de ${timeInBackground.inMinutes} minutos');
 
-    if (timeInBackground.inMinutes >= 2) {
-      // Verificación completa si estuvo más de 2 minutos en background
-      await _performFullServiceCheck();
-    } else {
-      // Verificación rápida
-      await _quickServiceStatusCheck();
-    }
+  // Si estuvo más de 5 minutos en background, verificar perfil completo
+  if (timeInBackground.inMinutes >= 5) {
+    print('🔄 Verificación completa de perfil y servicio...');
+    await _performFullProfileAndServiceCheck();
+  } else if (timeInBackground.inMinutes >= 2) {
+    // Verificación completa si estuvo más de 2 minutos en background
+    await _performFullServiceCheck();
+  } else {
+    // Verificación rápida
+    await _quickServiceStatusCheck();
   }
+}
 
+
+// Nuevo método para verificación completa incluyendo perfil
+Future<void> _performFullProfileAndServiceCheck() async {
+  setState(() => _isLoading = true);
+
+  try {
+    // 1. Verificar perfil primero
+    final profileCheck = await ProfileCompletionService.forceProfileCheck();
+    
+    if (profileCheck.needsCompletion && profileCheck.user != null) {
+      print('⚠️ Perfil incompleto detectado al regresar a la app');
+      
+      final token = await TokenStorage.getToken();
+      if (token != null) {
+        setState(() => _isLoading = false);
+        
+        // Navegar a completar perfil
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CompleteProfileScreen(
+              user: profileCheck.user!,
+              token: token,
+            ),
+          ),
+          (route) => false,
+        );
+        return;
+      }
+    }
+
+    // 2. Verificar vehículo
+    final hasVehicle = await UserService.hasRegisteredVehicle();
+    
+    if (!hasVehicle) {
+      print('⚠️ Usuario no tiene vehículo registrado');
+      setState(() {
+        _hasVehicleRegistered = false;
+        _isLoading = false;
+      });
+      _navigateToVehicleRegistration();
+      return;
+    }
+
+    setState(() => _hasVehicleRegistered = true);
+    
+    // 3. Verificar servicios activos
+    await _checkForActiveServiceOnStartup();
+
+    if (_hasActiveService && _activeRequest != null) {
+      await _updateCancellationTimeInfo();
+      if (_passengerStatus == PassengerStatus.driverAssigned) {
+        _startCancellationTimer();
+      }
+    }
+
+    print('✅ Verificación completa terminada');
+  } catch (e) {
+    print('❌ Error en verificación completa: $e');
+    _showErrorMessage('Error al verificar el estado del perfil y servicio');
+  } finally {
+    setState(() => _isLoading = false);
+  }
+}
+
+// N
 // Verificación rápida del estado del servicio
   Future<void> _quickServiceStatusCheck() async {
     if (_activeRequest == null) return;
@@ -4028,20 +4161,43 @@ class _PassengerMapScreenState extends State<PassengerMapScreen>
       body: Stack(
         children: [
           // Mapa
-          GoogleMap(
-            mapType: MapType.normal,
-            initialCameraPosition: _logic.initialCameraPosition,
-            onMapCreated: (controller) =>
-                _logic.mapController.complete(controller),
-            markers: _logic.markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
-            zoomControlsEnabled: true,
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 80,
-              bottom: _passengerStatus == PassengerStatus.idle ? 120 : 250,
-            ),
+         GoogleMap(
+  mapType: MapType.normal,
+  initialCameraPosition: _logic.initialCameraPosition,
+  onMapCreated: (controller) => _logic.mapController.complete(controller),
+  markers: _logic.markers,
+  myLocationEnabled: true,
+  myLocationButtonEnabled: false, // ✅ Desactivar el botón por defecto
+  zoomControlsEnabled: true,
+  padding: EdgeInsets.only(
+    top: MediaQuery.of(context).padding.top + 80,
+    bottom: _passengerStatus == PassengerStatus.idle ? 120 : 250,
+  ),
+),
+
+// ✅ Y agregar este botón personalizado en el Stack después del GoogleMap:
+Positioned(
+  top: MediaQuery.of(context).padding.top + 100,  
+  right: 16,
+  child: FloatingActionButton(
+    mini: true,
+    backgroundColor: Colors.white,
+    foregroundColor: AppColors.primary,
+    onPressed: () async {
+      final controller = await _logic.mapController.future;
+      final position = await Geolocator.getCurrentPosition();
+      controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: LatLng(position.latitude, position.longitude),
+            zoom: 16.0,
           ),
+        ),
+      );
+    },
+    child: const Icon(Icons.my_location),
+  ),
+),
           // UI Principal
           _buildMainUI(),
           // Loading Overlay

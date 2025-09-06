@@ -127,9 +127,20 @@ class AppLocalizations {
       'thankYouForUsingVoltGo': 'Thank you for using VoltGo',
       'total': 'Total',
       'close': 'Close',
+
+  // Nuevas claves para Google Sign In y Complete Profile
+  'welcomeBack': 'Welcome back',
+  'signInWithGoogle': 'Sign in with Google',
+  'completeYourProfile': 'Complete your profile',
+  'addPhoneToCompleteRegistration': 'Add your phone number to complete registration',
+  'registeredData': 'Registered data',
+  'completeProfile': 'Complete profile',
+  'skipForNow': 'Skip for now',
+  'profileCompleted': 'Profile completed successfully',
+  'phoneNumberWillBeUsedFor': 'Your number will be used for notifications and communication', 
       'technicianWorkingOnVehicle': 'The technician is working on your vehicle',
       'since': 'Since',
-      'initial': 'Initial',
+      'initial': 'Initial', 
       'time': 'Time',
       'technicianPreparingEquipment':
           'The technician is preparing the equipment. The service will start soon.',
@@ -289,12 +300,10 @@ class AppLocalizations {
       'reviewPreviousServices': 'Review your previous services',
       'all': 'All',
       'completed': 'Completed',
-      'cancelled': 'Cancelled',
-      'pending': 'Pending',
+       'pending': 'Pending',
       'accepted': 'Accepted',
       'enRoute': 'En Route',
-      'onSite': 'On Site',
-      'charging': 'Charging',
+       'charging': 'Charging',
       'today': 'Today',
       'yesterday': 'Yesterday',
        'errorLoadingHistory': 'Error loading history',
@@ -324,6 +333,9 @@ class AppLocalizations {
       'brand': 'Brand',
       'model': 'Model',
       'year': 'Year',
+        
+  'orRegisterWithEmail': 'Or register with your email',
+
       'identification': 'Identification',
       'plate': 'Plate',
       'color': 'Color',
@@ -443,12 +455,21 @@ class AppLocalizations {
           '• Asignar técnicos especializados\n'
           '• Brindar el mejor servicio personalizado',
       'registerVehicle': 'Registrar Vehículo',
+      'completeYourProfile': 'Completa tu perfil',
+'addPhoneToCompleteRegistration': 'Agrega tu número de teléfono para completar el registro',
+'registeredData': 'Datos registrados',
+'completeProfile': 'Completar perfil',
+'skipForNow': 'Omitir por ahora',
+'profileCompleted': 'Perfil completado exitosamente',
+'phoneNumberWillBeUsedFor': 'Tu número será usado para notificaciones y comunicación',
       'activeService': 'Servicio Activo',
       'youHaveActiveServiceDialog': 'Ya tienes un servicio en curso:',
       'request': 'Solicitud',
       'status': 'Estado',
       'requested': 'Solicitado',
       'whatToDo': '¿Qué deseas hacer?',
+        'orRegisterWithEmail': 'O regístrate con tu email',
+
       'viewService': 'Ver Servicio',
       'timeExpired': 'Tiempo Expirado',
       'cannotCancelNow': 'Ya no es posible cancelar este servicio.',
@@ -659,7 +680,8 @@ class AppLocalizations {
 
 // En español:
       'settings': 'Ajustes',
- 
+   'welcomeBack': 'Bienvenido de vuelta',
+  'signInWithGoogle': 'Iniciar sesión con Google', 
       'logout': 'Cerrar Sesión',
       'logoutConfirmationMessage':
           '¿Estás seguro de que quieres cerrar sesión?',
@@ -1025,6 +1047,9 @@ class AppLocalizations {
       _localizedValues[locale.languageCode]!['thankYouForRating']!;
 // Add these getter methods to your AppLocalizations class after the existing ones:
 
+String get welcomeBack => _localizedValues[locale.languageCode]!['welcomeBack']!; 
+String get orRegisterWithEmail => _localizedValues[locale.languageCode]!['orRegisterWithEmail']!;
+
 // Processing and loading
   String get processingRequest =>
       _localizedValues[locale.languageCode]!['processingRequest']!;
@@ -1178,6 +1203,26 @@ class AppLocalizations {
       _localizedValues[locale.languageCode]!['forceExpireService']!;
   String get areYouSureCancelExpiredService =>
       _localizedValues[locale.languageCode]!['areYouSureCancelExpiredService']!;
+
+
+// Agregar estas líneas en tu clase AppLocalizations
+
+// Complete Profile Screen
+String get completeYourProfile =>
+    _localizedValues[locale.languageCode]!['completeYourProfile']!;
+String get addPhoneToCompleteRegistration =>
+    _localizedValues[locale.languageCode]!['addPhoneToCompleteRegistration']!;
+String get registeredData =>
+    _localizedValues[locale.languageCode]!['registeredData']!;
+String get completeProfile =>
+    _localizedValues[locale.languageCode]!['completeProfile']!;
+String get skipForNow =>
+    _localizedValues[locale.languageCode]!['skipForNow']!;
+String get profileCompleted =>
+    _localizedValues[locale.languageCode]!['profileCompleted']!;
+String get phoneNumberWillBeUsedFor =>
+    _localizedValues[locale.languageCode]!['phoneNumberWillBeUsedFor']!;
+ 
 
 // Service information
   String get serviceInformation =>

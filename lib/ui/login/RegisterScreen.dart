@@ -1,7 +1,9 @@
 import 'package:Voltgo_User/data/models/User/user_model.dart';
+import 'package:Voltgo_User/data/services/GoogleService.dart'; // ✅ AGREGAR IMPORT
 import 'package:Voltgo_User/l10n/app_localizations.dart';
+import 'package:Voltgo_User/ui/login/CompleteProfileScreen.dart';
 import 'package:Voltgo_User/ui/login/add_vehicle_screen.dart';
-import 'package:Voltgo_User/utils/TokenStorage.dart';
+ import 'package:Voltgo_User/utils/TokenStorage.dart';
 import 'package:Voltgo_User/utils/bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:Voltgo_User/data/services/auth_api_service.dart';
@@ -10,6 +12,7 @@ import 'package:Voltgo_User/ui/login/LoginScreen.dart';
 import 'package:Voltgo_User/utils/AnimatedTruckProgress.dart';
 import 'package:Voltgo_User/utils/encryption_utils.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
+import 'dart:developer' as developer; // ✅ AGREGAR IMPORT
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -21,14 +24,12 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen>
     with SingleTickerProviderStateMixin {
   final _nameController = TextEditingController();
-  final _phoneController =
-      TextEditingController(); // Controlador para el número
-
+  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _companyController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  String? _fullPhoneNumber; // Para guardar LADA + NÚMERO
+  String? _fullPhoneNumber;
 
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
@@ -36,14 +37,12 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _isLoading = false;
   late AnimationController _animationController;
 
-  // En _RegisterScreenState
   @override
   void initState() {
     super.initState();
     _nameController.addListener(_updateButtonState);
     _emailController.addListener(_updateButtonState);
-    _phoneController.addListener(_updateButtonState); // <-- AÑADE ESTA LÍNEA
-    // _companyController.addListener(_updateButtonState); // <-- PUEDES BORRAR ESTA
+    _phoneController.addListener(_updateButtonState);
     _passwordController.addListener(_updateButtonState);
     _confirmPasswordController.addListener(_updateButtonState);
     _animationController =
@@ -61,12 +60,11 @@ class _RegisterScreenState extends State<RegisterScreen>
     super.dispose();
   }
 
-  // En _RegisterScreenState
   void _updateButtonState() {
     setState(() {
       _isButtonEnabled = _nameController.text.trim().isNotEmpty &&
           _emailController.text.trim().isNotEmpty &&
-          _phoneController.text.trim().isNotEmpty && // <-- CAMBIA ESTA LÍNEA
+          _phoneController.text.trim().isNotEmpty &&
           _passwordController.text.trim().isNotEmpty &&
           _confirmPasswordController.text.trim().isNotEmpty &&
           (_passwordController.text.trim() ==
@@ -75,7 +73,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Future<void> _register() async {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     if (!_isButtonEnabled || _isLoading) return;
     setState(() => _isLoading = true);
@@ -97,8 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         await TokenStorage.saveToken(response.token!);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n
-                .welcomeSuccessfulRegistration), // ✅ CAMBIAR de '¡Bienvenido! Registro exitoso.'
+            content: Text(l10n.welcomeSuccessfulRegistration),
             backgroundColor: Colors.green,
           ),
         );
@@ -106,12 +103,98 @@ class _RegisterScreenState extends State<RegisterScreen>
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(response.error ??
-                  l10n.errorOccurred)), // ✅ CAMBIAR de 'Ocurrió un error'
+              content: Text(response.error ?? l10n.errorOccurred)),
         );
       }
     } catch (e) {
-      // ... manejo de errores existente
+      _animationController.stop();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.errorOccurred),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ✅ NUEVO: Método para Google Sign Up con navegación a CompleteProfile
+  Future<void> _signUpWithGoogle() async {
+    final l10n = AppLocalizations.of(context);
+    
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+    _animationController.repeat();
+
+    try {
+      developer.log('Iniciando Google Sign Up...');
+      
+      final result = await GoogleAuthService.signInWithGoogle();
+      
+      _animationController.stop();
+      if (!mounted) return;
+
+      if (result.success && result.user != null && result.token != null) {
+        developer.log('Google Sign Up exitoso');
+        
+        // Crear modelo de usuario desde la respuesta
+        final userMap = result.user!;
+        final userModel = UserModel.fromJson(userMap);
+        
+        // ✅ VERIFICAR SI NECESITA COMPLETAR PERFIL
+        final phone = userMap['phone'];
+        
+        if (phone == null || phone.toString().trim().isEmpty) {
+          developer.log('Usuario necesita completar perfil - redirigiendo a CompleteProfileScreen');
+          
+          // Usuario necesita completar su perfil (agregar teléfono)
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CompleteProfileScreen(
+                user: userModel,
+                token: result.token!,
+              ),
+            ),
+            (route) => false,
+          );
+        } else {
+          developer.log('Usuario ya tiene perfil completo - navegando normalmente');
+          
+          // Usuario ya tiene toda la información necesaria
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.welcomeSuccessfulRegistration),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          _navigateAfterAuth(userModel);
+        }
+      } else {
+        // Error en Google Sign Up
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? l10n.errorOccurred),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      _animationController.stop();
+      developer.log('Excepción en Google Sign Up: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${l10n.errorOccurred}: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -119,20 +202,17 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   void _navigateAfterAuth(UserModel user) {
     if (user.hasRegisteredVehicle) {
-      // Si ya tiene vehículo, va a la pantalla principal
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const BottomNavBar()),
         (route) => false,
       );
     } else {
-      // Si NO tiene vehículo, muestra la pantalla de registro de vehículo
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
           builder: (context) => AddVehicleScreen(
             onVehicleAdded: () {
-              // Este callback se ejecuta cuando el usuario guarda el vehículo
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => const BottomNavBar()),
@@ -163,10 +243,14 @@ class _RegisterScreenState extends State<RegisterScreen>
                     const SizedBox(height: 60),
                     _buildHeader(),
                     const SizedBox(height: 30),
-                    _buildForm(),
-                    const SizedBox(height: 24),
-                    // ▼▼▼ NUEVO: Widget para los botones de login social ▼▼▼
+                    // ✅ MOVIDO: Botones sociales arriba
                     _buildSocialLogins(),
+                    const SizedBox(height: 30),
+                    // ✅ NUEVO: Separador con texto
+                    _buildSeparator(),
+                    const SizedBox(height: 30),
+                    // ✅ MOVIDO: Formulario de registro por email abajo
+                    _buildForm(),
                     const SizedBox(height: 24),
                     _buildFooter(),
                     const SizedBox(height: 40),
@@ -193,11 +277,213 @@ class _RegisterScreenState extends State<RegisterScreen>
           right: -90,
           child: Image.asset('assets/images/rectangle1.png',
               width: MediaQuery.of(context).size.width * 0.5,
-              color: AppColors.primary, // Color que quieras aplicar
-              colorBlendMode:
-                  BlendMode.srcIn, // Aplica el color sobre la imagen
+              color: AppColors.primary,
+              colorBlendMode: BlendMode.srcIn,
               fit: BoxFit.contain)),
     ]);
+  }
+
+  Widget _buildHeader() {
+    final l10n = AppLocalizations.of(context);
+
+    return Center(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            l10n.createAccount,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.completeFormToStart,
+            style: TextStyle(
+              fontSize: 18,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ ACTUALIZADO: Botones sociales con Google funcional
+  Widget _buildSocialLogins() {
+    final l10n = AppLocalizations.of(context);
+
+    return Column(
+      children: [
+        // ✅ Botón de Google - FUNCIONAL
+        _buildSocialButton(
+          assetName: 'assets/images/gugel.png',
+          text: l10n.signUpWithGoogle,
+          onPressed: _isLoading ? null : _signUpWithGoogle, // ← Conectar aquí
+        ),
+        const SizedBox(height: 12),
+        _buildSocialButton(
+          assetName: 'assets/images/appell.png',
+          text: l10n.signUpWithApple,
+          backgroundColor: Colors.blueGrey,
+          textColor: Colors.white,
+          onPressed: _isLoading ? null : () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Apple Sign Up próximamente'),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // ✅ NUEVO: Separador entre botones sociales y formulario
+  Widget _buildSeparator() {
+    final l10n = AppLocalizations.of(context);
+
+    return Row(
+      children: [
+        const Expanded(child: Divider(thickness: 1)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(
+            l10n.orRegisterWithEmail, // ✅ Agregar esta clave de localización
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const Expanded(child: Divider(thickness: 1)),
+      ],
+    );
+  }
+
+  Widget _buildSocialButton({
+    required String assetName,
+    required String text,
+    required VoidCallback? onPressed,
+    Color? backgroundColor,
+    Color? textColor,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        icon: Image.asset(assetName, height: 22, width: 22),
+        label: Text(
+          text,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: textColor ?? AppColors.textPrimary,
+          ),
+        ),
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: backgroundColor ?? AppColors.white,
+          minimumSize: const Size(0, 50),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          side: BorderSide(color: AppColors.gray300),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForm() {
+    final l10n = AppLocalizations.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTextField(
+          label: l10n.fullName,
+          hint: l10n.yourNameAndSurname,
+          controller: _nameController,
+        ),
+        const SizedBox(height: 20),
+        _buildTextField(
+          label: l10n.email,
+          hint: l10n.emailHint,
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 20),
+        _buildPhoneField(),
+        const SizedBox(height: 20),
+        _buildPasswordField(
+          label: l10n.password,
+          controller: _passwordController,
+          isPasswordVisible: _isPasswordVisible,
+          onToggleVisibility: () =>
+              setState(() => _isPasswordVisible = !_isPasswordVisible),
+        ),
+        const SizedBox(height: 20),
+        _buildPasswordField(
+          label: l10n.confirmPassword,
+          controller: _confirmPasswordController,
+          isPasswordVisible: _isConfirmPasswordVisible,
+          onToggleVisibility: () => setState(
+              () => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
+        ),
+        const SizedBox(height: 30),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _isButtonEnabled && !_isLoading ? _register : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _isButtonEnabled && !_isLoading
+                  ? AppColors.brandBlue
+                  : AppColors.gray300,
+              disabledBackgroundColor: AppColors.gray300,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              minimumSize: const Size(0, 50),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0)),
+              elevation: 0,
+            ),
+            child: Text(
+              l10n.createAccount,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFooter() {
+    final l10n = AppLocalizations.of(context);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          l10n.alreadyHaveAccount,
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Text(
+            l10n.signInHere,
+            style: TextStyle(
+              color: AppColors.brandBlue,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildTextField(
@@ -232,92 +518,14 @@ class _RegisterScreenState extends State<RegisterScreen>
     ]);
   }
 
-  // ▼▼▼ NUEVO: Helper para crear botones de login social genéricos ▼▼▼
-  Widget _buildSocialButton({
-    required String assetName,
-    required String text,
-    required VoidCallback onPressed,
-    Color? backgroundColor,
-    Color? textColor,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        icon: Image.asset(assetName, height: 22, width: 22),
-        label: Text(
-          text,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: textColor ?? AppColors.textPrimary,
-          ),
-        ),
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: backgroundColor ?? AppColors.white,
-          minimumSize: const Size(0, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.0),
-          ),
-          side: BorderSide(color: AppColors.gray300),
-        ),
-      ),
-    );
-  }
-
-// 2. En _buildSocialLogins():
-  Widget _buildSocialLogins() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            const Expanded(child: Divider(thickness: 1)),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text(
-                l10n.or, // ✅ CAMBIAR de 'O'
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const Expanded(child: Divider(thickness: 1)),
-          ],
-        ),
-        const SizedBox(height: 24),
-        _buildSocialButton(
-          assetName: 'assets/images/gugel.png',
-          text: l10n.signUpWithGoogle, // ✅ CAMBIAR de 'Registrarse con Google'
-          onPressed: () {
-            print('Registro con Google presionado');
-          },
-        ),
-        const SizedBox(height: 12),
-        _buildSocialButton(
-          assetName: 'assets/images/appell.png',
-          text: l10n.signUpWithApple, // ✅ CAMBIAR de 'Registrarse con Apple'
-          backgroundColor: Colors.blueGrey,
-          textColor: Colors.white,
-          onPressed: () {
-            print('Registro con Apple presionado');
-          },
-        ),
-      ],
-    );
-  }
-
-// 3. En _buildPhoneField():
   Widget _buildPhoneField() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          l10n.mobilePhone, // ✅ CAMBIAR de 'Teléfono móvil'
+          l10n.mobilePhone,
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
@@ -328,7 +536,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         IntlPhoneField(
           controller: _phoneController,
           decoration: InputDecoration(
-            hintText: l10n.phoneNumber, // ✅ CAMBIAR de 'Número de teléfono'
+            hintText: l10n.phoneNumber,
             filled: true,
             fillColor: AppColors.lightGrey.withOpacity(0.5),
             border: OutlineInputBorder(
@@ -357,136 +565,13 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
   }
 
-// 4. En _buildHeader():
-  Widget _buildHeader() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
-
-    return Center(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            l10n.createAccount, // ✅ CAMBIAR de 'Crea tu cuenta'
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l10n.completeFormToStart, // ✅ CAMBIAR de 'Completa el formulario para empezar.'
-            style: TextStyle(
-              fontSize: 18,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-// 5. En _buildForm():
-  Widget _buildForm() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildTextField(
-          label: l10n.fullName, // ✅ CAMBIAR de 'Nombre completo'
-          hint: l10n.yourNameAndSurname, // ✅ CAMBIAR de 'Tu nombre y apellido'
-          controller: _nameController,
-        ),
-        const SizedBox(height: 20),
-        _buildTextField(
-          label: l10n.email, // ✅ YA EXISTE
-          hint: l10n.emailHint, // ✅ CAMBIAR de 'tucorreo@ejemplo.com'
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 20),
-        _buildPhoneField(),
-        const SizedBox(height: 20),
-        _buildPasswordField(
-          label: l10n.password, // ✅ YA EXISTE
-          controller: _passwordController,
-          isPasswordVisible: _isPasswordVisible,
-          onToggleVisibility: () =>
-              setState(() => _isPasswordVisible = !_isPasswordVisible),
-        ),
-        const SizedBox(height: 20),
-        _buildPasswordField(
-          label: l10n.confirmPassword, // ✅ CAMBIAR de 'Confirmar contraseña'
-          controller: _confirmPasswordController,
-          isPasswordVisible: _isConfirmPasswordVisible,
-          onToggleVisibility: () => setState(
-              () => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
-        ),
-        const SizedBox(height: 30),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _isButtonEnabled && !_isLoading ? _register : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _isButtonEnabled && !_isLoading
-                  ? AppColors.brandBlue
-                  : AppColors.gray300,
-              disabledBackgroundColor: AppColors.gray300,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              minimumSize: const Size(0, 50),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0)),
-              elevation: 0,
-            ),
-            child: Text(
-              l10n.createAccount, // ✅ CAMBIAR de 'Crear cuenta'
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.white,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-// 6. En _buildFooter():
-  Widget _buildFooter() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          l10n.alreadyHaveAccount, // ✅ CAMBIAR de '¿Ya tienes una cuenta? '
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Text(
-            l10n.signInHere, // ✅ CAMBIAR de 'Inicia sesión.'
-            style: TextStyle(
-              color: AppColors.brandBlue,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-// 7. En _buildPasswordField() - hint text:
   Widget _buildPasswordField({
     required String label,
     required TextEditingController controller,
     required bool isPasswordVisible,
     required VoidCallback onToggleVisibility,
   }) {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,8 +589,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           controller: controller,
           obscureText: !isPasswordVisible,
           decoration: InputDecoration(
-            hintText:
-                l10n.minimumCharacters, // ✅ CAMBIAR de 'Mínimo 8 caracteres'
+            hintText: l10n.minimumCharacters,
             filled: true,
             fillColor: AppColors.lightGrey.withOpacity(0.5),
             border: OutlineInputBorder(
