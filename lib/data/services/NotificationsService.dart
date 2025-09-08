@@ -1,243 +1,254 @@
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:Voltgo_User/data/models/NotificationItem.dart';
-import 'package:Voltgo_User/data/models/alert/NotificationPermissions.dart';
-import 'package:Voltgo_User/utils/TokenStorage.dart';
-import 'package:Voltgo_User/utils/constants.dart';
+import 'dart:async';
+ import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart';
 
 class NotificationService {
-  static Future<Map<String, String>> _getAuthHeaders() async {
-    final token = await TokenStorage.getToken();
-    return {
-      'Authorization': 'Token $token',
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-  }
+  static AudioPlayer? _player;
+  static bool _isPlaying = false;
+  static bool _isLooping = false;
+  static bool _isDisposed = false;
+  static Timer? _vibrationTimer;
 
-  static Future<NotificationPermissions> getNotificationPermissions() async {
-    final url =
-        Uri.parse('${Constants.baseUrl}/user/get-notifications-permission');
-
-    debugPrint('[NotificationService] 🔄 Iniciando solicitud GET a: $url');
-
-    try {
-      debugPrint(
-          '[NotificationService] Obteniendo headers de autenticación...');
-      final headers = await _getAuthHeaders();
-      debugPrint('[NotificationService] Headers a enviar:');
-      headers.forEach((key, value) {
-        debugPrint('  $key: ${key == 'Authorization' ? 'Bearer ***' : value}');
-      });
-      debugPrint('[NotificationService] Enviando solicitud GET...');
-      final response = await http.get(
-        url,
-        headers: headers,
-      );
-      debugPrint('[NotificationService] 🔵 Respuesta recibida:');
-      debugPrint('  Status Code: ${response.statusCode}');
-      debugPrint('  Headers: ${response.headers}');
-      debugPrint('  Body: ${response.body}');
-      if (response.statusCode == 200) {
-        try {
-          final String responseBody = utf8.decode(response.bodyBytes);
-          final Map<String, dynamic> data = jsonDecode(responseBody);
-          debugPrint('[NotificationService] ✅ Datos parseados correctamente');
-          return NotificationPermissionsResponse.fromJson(data).data;
-        } catch (e) {
-          debugPrint('[NotificationService] ❌ Error al parsear respuesta: $e');
-          throw Exception('Error al procesar la respuesta del servidor');
-        }
-      } else if (response.statusCode == 401) {
-        debugPrint('[NotificationService] ❌ Error 401 - Detalle completo:');
-        debugPrint('  URL: $url');
-        debugPrint('  Headers enviados: $headers');
-        debugPrint('  Body recibido: ${response.body}');
-        throw Exception('Sesión expirada. Por favor vuelve a iniciar sesión');
-      } else {
-        debugPrint('[NotificationService] ❌ Error ${response.statusCode}');
-        throw Exception('Error al obtener permisos: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint(
-          '[NotificationService] ❌ Error en getNotificationPermissions: $e');
-      rethrow;
+  // Inicializar el player de forma lazy
+  static AudioPlayer _getPlayer() {
+    if (_player == null || _isDisposed) {
+      _player = AudioPlayer();
+      _isDisposed = false;
+      print('🎵 AudioPlayer inicializado');
     }
+    return _player!;
   }
 
-  static Future<bool> updateSingleNotificationPermission({
-    required String name,
-    required bool value,
+  /// Reproduce sonido y vibración para notificaciones
+  static Future<void> playNotification({
+    bool loop = false,
+    bool includeVibration = true,
+    VibrationPattern vibrationPattern = VibrationPattern.incoming,
   }) async {
-    final url =
-        Uri.parse('${Constants.baseUrl}/user/change-notification-permissions');
-
-    debugPrint(
-        '[NotificationService] 🔄 Iniciando solicitud POST individual a: $url');
-
     try {
-      final payload = {
-        'name': name,
-        'value': value,
-      };
+      // Verificar si ya está reproduciendo el mismo tipo de sonido
+      if (_isPlaying && loop == _isLooping) {
+        print('🎵 Ya está reproduciendo el mismo tipo de notificación');
+        return;
+      }
 
-      debugPrint('[NotificationService] Payload individual a enviar:');
-      debugPrint(jsonEncode(payload));
-      final headers = await _getAuthHeaders();
-      final response = await http.post(
-        url,
-        headers: headers,
-        body: jsonEncode(payload),
-      );
+      print('🎵 Iniciando notificación (sonido: ✓, vibración: $includeVibration, loop: $loop)');
 
-      debugPrint('[NotificationService] 🔵 Respuesta recibida (individual):');
-      debugPrint('  Status Code: ${response.statusCode}');
-      debugPrint('  Body: ${response.body}');
+      final player = _getPlayer();
+      
+      // Detener cualquier reproducción actual
+      if (_isPlaying) {
+        await stop();
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
 
-      if (response.statusCode == 200) {
-        debugPrint(
-            '[NotificationService] ✅ Permiso individual actualizado correctamente');
-        return true;
+      _isPlaying = true;
+      _isLooping = loop;
+
+      // Iniciar vibración si está habilitada
+      if (includeVibration) {
+        _startVibration(vibrationPattern, loop);
+      }
+
+      if (loop) {
+        // Modo loop
+        await player.setReleaseMode(ReleaseMode.loop);
+        await player.play(AssetSource('sounds/sonido.mp3'));
+        print('🔄 Notificación en modo loop iniciada');
       } else {
-        debugPrint(
-            '[NotificationService] ❌ Error ${response.statusCode} en actualización individual');
-        debugPrint('  Detalle: ${response.body}');
-        throw Exception(
-            'Error al actualizar permiso individual: ${response.statusCode}');
+        // Modo normal (una sola vez)
+        await player.setReleaseMode(ReleaseMode.stop);
+        await player.play(AssetSource('sounds/sonido.mp3'));
+        print('▶️ Notificación normal iniciada');
+        
+        // Escuchar cuando termine la reproducción
+        player.onPlayerComplete.listen((event) {
+          _isPlaying = false;
+          _isLooping = false;
+          _stopVibration();
+          print('✅ Notificación completada');
+        });
       }
     } catch (e) {
-      debugPrint(
-          '[NotificationService] ❌ Error en updateSingleNotificationPermission: $e');
-      rethrow;
+      print('❌ Error reproduciendo notificación: $e');
+      _isPlaying = false;
+      _isLooping = false;
+      _stopVibration();
     }
   }
 
-  /// **1. Obtiene la lista de notificaciones (con paginación opcional).**
-  ///
-  /// Llama a `GET /user/get-notifications` o `GET /user/get-notifications/{page}`.
-  static Future<NotificationData> getNotifications({int? page}) async {
-    // Construye la URL base y añade la página si se proporciona.
-    String urlString = '${Constants.baseUrl}/user/get-notifications';
-    if (page != null) {
-      urlString += '/$page';
-    }
-    final url = Uri.parse(urlString);
+  /// Inicia la vibración según el patrón especificado
+  static void _startVibration(VibrationPattern pattern, bool loop) {
+    _stopVibration(); // Detener vibración anterior
 
-    debugPrint('[NotificationApiService] 🔄 Iniciando GET a: $url');
-
-    try {
-      final headers = await _getAuthHeaders();
-      final response = await http.get(url, headers: headers);
-
-      debugPrint('[NotificationApiService] 🔵 Respuesta de getNotifications:');
-      debugPrint('  Status Code: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final String responseBody = utf8.decode(response.bodyBytes);
-        debugPrint(
-            '[NotificationApiService] ✅ Notificaciones obtenidas correctamente.');
-        // Se parsea la respuesta usando el modelo NotificationsResponse y se devuelve el objeto 'data'
-        return NotificationsResponse.fromJson(responseBody).data;
-      } else if (response.statusCode == 401) {
-        debugPrint('[NotificationApiService] ❌ Error 401: Sesión expirada.');
-        throw Exception('Sesión expirada. Por favor vuelve a iniciar sesión');
-      } else {
-        debugPrint(
-            '[NotificationApiService] ❌ Error ${response.statusCode}: ${response.body}');
-        throw Exception(
-            'Error al obtener las notificaciones: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('[NotificationApiService] ❌ Error en getNotifications: $e');
-      rethrow; // Re-lanza la excepción para que sea manejada por la UI.
+    switch (pattern) {
+      case VibrationPattern.incoming:
+        _vibrateIncomingRequest(loop);
+        break;
+      case VibrationPattern.urgent:
+        _vibrateUrgent(loop);
+        break;
+      case VibrationPattern.gentle:
+        _vibrateGentle(loop);
+        break;
+      case VibrationPattern.single:
+        HapticFeedback.heavyImpact();
+        break;
     }
   }
 
-  /// **2. Obtiene el detalle de una notificación específica.**
-  ///
-  /// Llama a `GET /user/get-notification-detail/{id}`.
-  static Future<NotificationDetail> getNotificationDetail(
-      {required int notificationId}) async {
-    final url = Uri.parse(
-        '${Constants.baseUrl}/user/get-notification-detail/$notificationId');
-
-    debugPrint('[NotificationApiService] 🔄 Iniciando GET a: $url');
-
-    try {
-      final headers = await _getAuthHeaders();
-      final response = await http.get(url, headers: headers);
-
-      debugPrint(
-          '[NotificationApiService] 🔵 Respuesta de getNotificationDetail:');
-      debugPrint('  Status Code: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final String responseBody = utf8.decode(response.bodyBytes);
-        debugPrint(
-            '[NotificationApiService] ✅ Detalle de notificación obtenido.');
-        // Se parsea la respuesta usando el modelo NotificationDetailResponse
-        return NotificationDetailResponse.fromJson(responseBody).data;
-      } else if (response.statusCode == 401) {
-        debugPrint('[NotificationApiService] ❌ Error 401: Sesión expirada.');
-        throw Exception('Sesión expirada. Por favor vuelve a iniciar sesión');
-      } else {
-        debugPrint(
-            '[NotificationApiService] ❌ Error ${response.statusCode}: ${response.body}');
-        throw Exception('Error al obtener el detalle: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint(
-          '[NotificationApiService] ❌ Error en getNotificationDetail: $e');
-      rethrow;
+  /// Patrón de vibración para solicitudes entrantes
+  static void _vibrateIncomingRequest(bool loop) {
+    // Vibración inicial fuerte
+    HapticFeedback.heavyImpact();
+    
+    if (loop) {
+      _vibrationTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+        HapticFeedback.heavyImpact();
+        
+        // Vibración secundaria más suave después de 300ms
+        Future.delayed(const Duration(milliseconds: 300), () {
+          HapticFeedback.mediumImpact();
+        });
+      });
+    } else {
+      // Solo una secuencia de vibración
+      Future.delayed(const Duration(milliseconds: 300), () {
+        HapticFeedback.mediumImpact();
+      });
+      Future.delayed(const Duration(milliseconds: 600), () {
+        HapticFeedback.lightImpact();
+      });
     }
   }
 
-  /// **3. Marca una notificación como leída.**
-  ///
-  /// Llama a `POST /user/set-notification-read`.
-  static Future<bool> setNotificationRead({required int notificationId}) async {
-    final url = Uri.parse('${Constants.baseUrl}/user/set-notification-read');
-
-    debugPrint('[NotificationApiService] 🔄 Iniciando POST a: $url');
-
-    try {
-      final headers = await _getAuthHeaders();
-      final payload =
-          jsonEncode({'notification_id': notificationId.toString()});
-
-      debugPrint('[NotificationApiService] Payload a enviar: $payload');
-
-      final response = await http.post(
-        url,
-        headers: headers,
-        body: payload,
-      );
-
-      debugPrint(
-          '[NotificationApiService] 🔵 Respuesta de setNotificationRead:');
-      debugPrint('  Status Code: ${response.statusCode}');
-      debugPrint('  Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        debugPrint(
-            '[NotificationApiService] ✅ Notificación marcada como leída.');
-        // Opcional: podrías parsear la respuesta si quisieras usar el mensaje.
-        // final responseData = SetNotificationReadResponse.fromJson(response.body);
-        // debugPrint(responseData.message);
-        return true;
-      } else if (response.statusCode == 401) {
-        debugPrint('[NotificationApiService] ❌ Error 401: Sesión expirada.');
-        throw Exception('Sesión expirada. Por favor vuelve a iniciar sesión');
-      } else {
-        debugPrint(
-            '[NotificationApiService] ❌ Error ${response.statusCode}: ${response.body}');
-        throw Exception(
-            'Error al marcar la notificación como leída: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('[NotificationApiService] ❌ Error en setNotificationRead: $e');
-      rethrow;
+  /// Patrón de vibración urgente (más intenso)
+  static void _vibrateUrgent(bool loop) {
+    // Vibración muy fuerte inicial
+    HapticFeedback.heavyImpact();
+    
+    if (loop) {
+      _vibrationTimer = Timer.periodic(const Duration(milliseconds: 1500), (timer) {
+        // Secuencia de 3 vibraciones fuertes
+        HapticFeedback.heavyImpact();
+        Future.delayed(const Duration(milliseconds: 150), () {
+          HapticFeedback.heavyImpact();
+        });
+        Future.delayed(const Duration(milliseconds: 300), () {
+          HapticFeedback.heavyImpact();
+        });
+      });
     }
   }
+
+  /// Patrón de vibración suave
+  static void _vibrateGentle(bool loop) {
+    HapticFeedback.lightImpact();
+    
+    if (loop) {
+      _vibrationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+        HapticFeedback.lightImpact();
+      });
+    }
+  }
+
+  /// Detiene la vibración
+  static void _stopVibration() {
+    _vibrationTimer?.cancel();
+    _vibrationTimer = null;
+  }
+
+  /// Detiene tanto el sonido como la vibración
+  static Future<void> stop() async {
+    try {
+      if (_player != null && !_isDisposed) {
+        print('⏹️ Deteniendo notificación...');
+        await _player!.stop();
+        _isPlaying = false;
+        _isLooping = false;
+        _stopVibration();
+        print('✅ Notificación detenida');
+      }
+    } catch (e) {
+      print('❌ Error deteniendo notificación: $e');
+    }
+  }
+
+  /// Libera los recursos
+  static void dispose() {
+    try {
+      if (_player != null && !_isDisposed) {
+        print('🗑️ Liberando NotificationService...');
+        _player!.dispose();
+        _player = null;
+        _isDisposed = true;
+        _isPlaying = false;
+        _isLooping = false;
+        _stopVibration();
+        print('✅ NotificationService liberado');
+      }
+    } catch (e) {
+      print('❌ Error liberando NotificationService: $e');
+    }
+  }
+
+  /// Reinicializa el servicio
+  static void reinitialize() {
+    if (_isDisposed || _player == null) {
+      print('🔄 Reinicializando NotificationService...');
+      _player = AudioPlayer();
+      _isDisposed = false;
+      _isPlaying = false;
+      _isLooping = false;
+      _stopVibration();
+    }
+  }
+
+  // Métodos de estado
+  static bool get isPlaying => _isPlaying;
+  static bool get isLooping => _isLooping;
+  static bool get isDisposed => _isDisposed;
+  static bool get isVibrating => _vibrationTimer?.isActive ?? false;
+
+  // Métodos de conveniencia para diferentes tipos de notificaciones
+  
+  /// Notificación para solicitudes entrantes (sonido + vibración en loop)
+  static Future<void> playIncomingRequestNotification() async {
+    await playNotification(
+      loop: true,
+      includeVibration: false,
+      vibrationPattern: VibrationPattern.incoming,
+    );
+  }
+
+  /// Notificación urgente (para cancelaciones o errores críticos)
+  static Future<void> playUrgentNotification() async {
+    await playNotification(
+      loop: false,
+      includeVibration: true,
+      vibrationPattern: VibrationPattern.urgent,
+    );
+  }
+
+  /// Notificación suave (para confirmaciones)
+  static Future<void> playGentleNotification() async {
+    await playNotification(
+      loop: false,
+      includeVibration: true,
+      vibrationPattern: VibrationPattern.gentle,
+    );
+  }
+
+  /// Solo vibración (sin sonido)
+  static void vibrateOnly(VibrationPattern pattern) {
+    _startVibration(pattern, false);
+  }
+}
+
+/// Enum para diferentes patrones de vibración
+enum VibrationPattern {
+  incoming,    // Para solicitudes entrantes
+  urgent,      // Para situaciones urgentes
+  gentle,      // Para confirmaciones suaves
+  single,      // Una sola vibración
 }

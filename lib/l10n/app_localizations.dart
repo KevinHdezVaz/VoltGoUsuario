@@ -22,7 +22,52 @@ class AppLocalizations {
       'technicianArriving': 'Technician arriving in',
       'minutes': 'minutes',
       'estimated': 'Estimated',
+            'otros': 'Others',
+            'politicadeprivacidad': 'Privacy Policy',
+
       'arrival': 'Arrival',
+ 
+      'serviceDetails': 'Service Details',
+  'errorLoadingDetails': 'Error loading details',
+  'noAdditionalDetails': 'Additional details not available',
+  'detailsWillBeAdded': 'Technical service details will be added by the technician during or after the service.',
+  'serviceInformation': 'Service Information',
+  'date': 'Date',
+  'serviceId': 'Service ID',
+  'serviceTimeline': 'Service Timeline',
+  'started': 'Started',
+  'profileUpdated': 'Profile Updated',
+'profileUpdatedSuccessfully': 'Your profile has been updated successfully.',
+'accept': 'Accept',
+'unsavedChanges': 'Unsaved Changes',
+'discardChanges': 'Do you want to discard the changes made?',
+'discard': 'Discard',
+'tyc' : 'Terms and Conditions',
+'save': 'Save',
+'basicInformation': 'Basic Information',
+'invalidEmail': 'Invalid email',
+'phoneMinLength': 'Phone must have at least 10 digits',
+'saveChanges': 'Save Changes',
+'noChanges': 'No Changes',
+'loading': 'Loading...',
+'user': 'User',
+  'duration': 'Duration',
+  'batteryInformation': 'Battery Information',
+  'initialLevel': 'Initial Level',
+  'chargeTime': 'Charge Time',
+  'serviceNotes': 'Service Notes',
+  'vehicle': 'Vehicle',
+   'editElectricVehicle': 'Edit Electric Vehicle',
+    'vehicleUpdated': 'Vehicle Updated!',
+    'vehicleUpdatedSuccess': 'Your vehicle has been updated successfully.',
+    'vehicleUpdateError': 'Vehicle update error',
+    'updateVehicle': 'Update Vehicle',
+  'before': 'Before',
+  'after': 'After',
+  'servicePhotos': 'Service Photos',
+  'paymentInformation': 'Payment Information',
+  'totalCost': 'Total Cost',
+  'noServiceHistory': 'No service history',
       'connector': 'Connector',
       'estimatedTime': 'Estimated time',
       'estimatedCost': 'Estimated cost',
@@ -35,6 +80,47 @@ class AppLocalizations {
       'youHaveActiveService': 'You have an active service',
       'tapToFindTechnician': 'Tap to find a technician',
       'cancel': 'Cancel',
+        'termsAndConditions': 'Terms and Conditions',
+
+         'privacyPolicy': 'Privacy Policy',
+    'dataCollection': '1. Information We Collect',
+    'dataCollectionContent': 'Here will go the text about what personal data VoltGo collects, including profile information, location and app usage.',
+    'dataUsage': '2. How We Use Your Information',
+    'dataUsageContent': 'Here will go the text about how VoltGo uses collected data to provide services, improve experience and communicate with users.',
+    'locationData': '3. Location Data',
+    'locationDataContent': 'Here will go the text about how VoltGo collects and uses location data to connect users with nearby technicians.',
+    'dataSharing': '4. Information Sharing',
+    'dataSharingContent': 'Here will go the text about when and with whom VoltGo may share users\' personal information.',
+    'dataSecurity': '5. Data Security',
+    'dataSecurityContent': 'Here will go the text about security measures implemented to protect users\' personal information.',
+    'userRights': '6. User Rights',
+    'userRightsContent': 'Here will go the text about users\' rights regarding their personal data, including access, correction and deletion.',
+    'cookies': '7. Cookies and Similar Technologies',
+    'cookiesContent': 'Here will go the text about the use of cookies and other tracking technologies in VoltGo app.',
+    'thirdPartyServices': '8. Third-Party Services',
+    'thirdPartyServicesContent': 'Here will go the text about third-party services integrated in VoltGo and their privacy policies.',
+    'dataRetention': '9. Data Retention',
+    'dataRetentionContent': 'Here will go the text about how long VoltGo retains users\' personal data.',
+    'minorPrivacy': '10. Children\'s Privacy',
+    'minorPrivacyContent': 'Here will go the text about special privacy policies for underage users.',
+    'privacyQuestions': 'For privacy questions, contact us at:',
+    'lastUpdated': 'Last updated: January 2025',
+    'acceptance': '1. Acceptance of Terms',
+    'acceptanceContent': 'Here will go the text about acceptance of VoltGo app terms and conditions.',
+    'serviceDescription': '2. Service Description',
+    'serviceDescriptionContent': 'Here will go the text describing VoltGo services, including electric vehicle charging and technical assistance.',
+    'userResponsibilities': '3. User Responsibilities',
+    'userResponsibilitiesContent': 'Here will go the text about user responsibilities and obligations when using VoltGo platform.',
+    'technicianObligations': '4. Technician Obligations',
+    'technicianObligationsContent': 'Here will go the text about obligations and responsibilities of registered technicians on the platform.',
+    'paymentTerms': '5. Payment Terms',
+    'paymentTermsContent': 'Here will go the text about payment terms, billing and refund policies.',
+    'limitation': '6. Limitation of Liability',
+    'limitationContent': 'Here will go the text about VoltGo liability limitations regarding damages or inconveniences.',
+    'modifications': '7. Modifications',
+    'modificationsContent': 'Here will go the text about how and when VoltGo can modify these terms and conditions.',
+    'contactUs': 'Contact Us',
+    'questionsContact': 'If you have questions about these terms, contact us at:',
       'cancelService': 'Cancel Service',
       'followRealTime': 'Follow in real time',
       'serviceCompleted': 'Service Completed!',
@@ -63,6 +149,35 @@ class AppLocalizations {
       'youHaveActiveServiceDialog': 'You already have an active service:',
       'request': 'Request',
       'status': 'Status',
+      'tracking': 'Tracking...',
+    'technicianConfirmedPreparing': 'Technician confirmed, preparing',
+    'enRouteToLocation': 'En route to your location',
+    'technicianOnSite': 'Technician on site',
+     'preparingService': 'Preparing service',
+    'technicianArrived': '📍 Technician has arrived',
+    'technicianArrivedMessage': 'The technician is at your location and will begin the service.',
+    'serviceStarted': '⚡ Service started',
+    'serviceStartedMessage': 'The technician has started charging your vehicle.',
+     'serviceCompletedMessage': 'Your vehicle has been charged successfully.',
+    'serviceCancelled': '❌ Service cancelled',
+    'serviceCancelledMessage': 'The service has been cancelled.',
+    'distance': 'Distance',
+    'obtainingLocation': 'Obtaining location...',
+    'call': 'Call',
+    'message': 'Message',
+     'yourLocation': 'Your location',
+    'technicianName': 'Technician',
+        'updateVehicle': 'Update Vehicle',
+
+    'serviceVehicle': 'Service vehicle',
+    'serviceProgress': 'Service progress',
+    'processing': 'Processing...',
+    'phoneNotAvailable': 'Phone number not available',
+    'cannotSendMessages': 'Cannot send messages',
+    'cancelServiceConfirmation': 'Cancel Service',
+    'areYouSureCancel': 'Are you sure you want to cancel this service?',
+    'no': 'No',
+    'yesCancel': 'Yes, cancel',
       'requested': 'Requested',
       'whatToDo': 'What would you like to do?',
       'viewService': 'View Service',
@@ -164,8 +279,7 @@ class AppLocalizations {
           '• Wait a few seconds and continue\n• Close and reopen the app\n• If it persists, contact support',
       'retry': 'Retry',
       'continueAnyway': 'Continue Anyway',
-      'processing': 'Processing...',
-      'nearbyTechnicians': 'Looking for nearby technicians',
+       'nearbyTechnicians': 'Looking for nearby technicians',
       'thisCanTakeSeconds': 'This can take a few seconds',
       'searchingDots': 'Searching technicians nearby',
       'onSite': 'On site',
@@ -176,8 +290,7 @@ class AppLocalizations {
       'hoursAgo': 'hours ago',
       'daysAgo': 'days ago',
       'ago': 'ago',
-      'serviceVehicle': 'Service vehicle',
-      'notSpecified': 'Not specified',
+       'notSpecified': 'Not specified',
       'technician': 'Technician',
       'errorCancellingService': 'Error cancelling service',
       'noActiveServiceToCancel': 'No active service to cancel',
@@ -188,10 +301,8 @@ class AppLocalizations {
           'The technician is already on the way to your location. Please wait for their arrival.',
       'serviceCancelledWithFee': 'Service cancelled with fee',
       'serviceCancelledSuccessfullyMessage': 'Service cancelled successfully',
-      'no': 'No',
-      'yes': 'Yes',
-      'yesCancel': 'Yes, cancel',
-      'areYouSureCancelService': 'Are you sure you want to cancel the service?',
+       'yes': 'Yes',
+       'areYouSureCancelService': 'Are you sure you want to cancel the service?',
       'cancelRide': 'Cancel Service',
       'blockedFromCancelling': 'Blocked from cancelling',
       'timeForCancellingExpired': 'Time for cancelling expired',
@@ -202,8 +313,7 @@ class AppLocalizations {
       'forceExpireService': 'Force Expire Service',
       'areYouSureCancelExpiredService':
           'Are you sure you want to cancel this service?',
-      'serviceInformation': 'Service information:',
-      'timeElapsed': 'Time elapsed',
+       'timeElapsed': 'Time elapsed',
       'currentStatus': 'Current status',
       'noChargesForCancellation': 'No charges will be applied for cancellation',
       'canRequestNewServiceImmediately':
@@ -254,8 +364,7 @@ class AppLocalizations {
           'Your vehicle has been charged successfully! Thank you for using VoltGo.',
       'technicianWillDocumentProgress':
           'The technician will document the progress during the service',
-      'serviceProgress': 'Service Progress',
-      'from': 'From',
+       'from': 'From',
       'batteryLevel': 'Battery level',
       'chargingTime': 'Charging time',
       'min': 'min',
@@ -263,8 +372,7 @@ class AppLocalizations {
       'averageRating': 'Average rating',
       'phoneCall': 'Phone call',
       'sendMessage': 'Send message',
-      'message': 'Message',
-      'equipmentReady': 'Equipment ready',
+       'equipmentReady': 'Equipment ready',
       'startingCharge': 'Starting charge',
       'connectingTechnician': 'Connecting to technician',
       'thankYouForYourRating': 'Thank you for your rating!',
@@ -293,8 +401,7 @@ class AppLocalizations {
       'securityAndPassword': 'Security and Password',
       'chatHistory': 'Chat History',
       'paymentMethods': 'Payment Methods',
-      'vehicle': 'Vehicle',
-      'manageVehicles': 'Manage Vehicles',
+       'manageVehicles': 'Manage Vehicles',
       'documents': 'Documents',
       'serviceHistory': 'Service History',
       'reviewPreviousServices': 'Review your previous services',
@@ -653,6 +760,8 @@ class AppLocalizations {
           'El técnico documentará el progreso durante el servicio',
       'serviceProgress': 'Progreso del Servicio',
       'from': 'Desde',
+                  'otros': 'Otros',
+
       'batteryLevel': 'Nivel de batería',
       'chargingTime': 'Tiempo de carga',
       'min': 'min',
@@ -703,15 +812,160 @@ class AppLocalizations {
       'reviewPreviousServices': 'Revisa tus servicios anteriores',
       'all': 'Todo',
       'completed': 'Completado',
+      'profileUpdated': 'Perfil Actualizado',
+'profileUpdatedSuccessfully': 'Tu perfil se ha actualizado correctamente.',
+'accept': 'Aceptar',
+'unsavedChanges': 'Cambios sin guardar',
+'discardChanges': '¿Deseas descartar los cambios realizados?',
+'discard': 'Descartar',
+'save': 'Guardar',
+'basicInformation': 'Información básica',
+'invalidEmail': 'Email inválido',
+'phoneMinLength': 'Teléfono debe tener al menos 10 dígitos',
+'saveChanges': 'Guardar cambios',
+'noChanges': 'Sin cambios',
+'loading': 'Cargando...',
+'user': 'Usuario',
+
        'pending': 'Pendiente',
       'accepted': 'Aceptado',
       'enRoute': 'En Camino',
+      'serviceDetails': 'Detalles del Servicio',
+  'errorLoadingDetails': 'Error al cargar los detalles',
+  'noAdditionalDetails': 'Detalles adicionales no disponibles',
+  'detailsWillBeAdded': 'Los detalles técnicos del servicio serán agregados por el técnico durante o después del servicio.',
+   'date': 'Fecha',
+  'serviceId': 'ID del Servicio',
+  'serviceTimeline': 'Cronología del Servicio',
+  'started': 'Iniciado',
+  'duration': 'Duración',
+  'batteryInformation': 'Información de Batería',
+  'initialLevel': 'Nivel Inicial',
+  'chargeTime': 'Tiempo de Carga',
+  'serviceNotes': 'Notas del Servicio',
+   'before': 'Antes',
+  'after': 'Después',
+  'servicePhotos': 'Fotos del Servicio',
+  'paymentInformation': 'Información de Pago',
+  'totalCost': 'Costo Total',
+  'noServiceHistory': 'No hay historial de servicios',
        'charging': 'Cargando',
       'today': 'Hoy',
       'yesterday': 'Ayer',
        'errorLoadingHistory': 'Error al cargar el historial',
        'noServicesInHistory': 'No tienes servicios en tu historial.',
       'requestService': 'Solicitar Servicio',
+      'tracking': 'Seguimiento...',
+    'technicianConfirmedPreparing': 'Técnico confirmado, preparándose',
+    'enRouteToLocation': 'En camino hacia tu ubicación', 
+    'preparingService': 'Preparando servicio',
+    'technicianArrived': '📍 Técnico ha llegado', 
+    'serviceStartedMessage': 'El técnico ha comenzado la cargar tu vehículo.', 
+    'serviceCancelledMessage': 'El servicio ha sido cancelado.',
+    'distance': 'Distancia',
+    'obtainingLocation': 'Obteniendo ubicación...',
+    // ▼▼▼ AGREGAR AL MAPA _localizedValues ▼▼▼
+ 
+    'termsAndConditions': 'Terms and Conditions',
+    'lastUpdated': 'Last updated: January 2025',
+    'acceptance': '1. Acceptance of Terms',
+    'acceptanceContent': 'Here will go the text about acceptance of VoltGo app terms and conditions.',
+    'serviceDescription': '2. Service Description',
+    'serviceDescriptionContent': 'Here will go the text describing VoltGo services, including electric vehicle charging and technical assistance.',
+    'userResponsibilities': '3. User Responsibilities',
+    'userResponsibilitiesContent': 'Here will go the text about user responsibilities and obligations when using VoltGo platform.',
+    'technicianObligations': '4. Technician Obligations',
+    'technicianObligationsContent': 'Here will go the text about obligations and responsibilities of registered technicians on the platform.',
+    'paymentTerms': '5. Payment Terms',
+    'paymentTermsContent': 'Here will go the text about payment terms, billing and refund policies.',
+    'limitation': '6. Limitation of Liability',
+    'limitationContent': 'Here will go the text about VoltGo liability limitations regarding damages or inconveniences.',
+    'modifications': '7. Modifications',
+    'modificationsContent': 'Here will go the text about how and when VoltGo can modify these terms and conditions.',
+    'contactUs': 'Contact Us',
+    'questionsContact': 'If you have questions about these terms, contact us at:',
+    
+    // Política de Privacidad - INGLÉS
+    'privacyPolicy': 'Privacy Policy',
+    'dataCollection': '1. Information We Collect',
+    'dataCollectionContent': 'Here will go the text about what personal data VoltGo collects, including profile information, location and app usage.',
+    'dataUsage': '2. How We Use Your Information',
+    'dataUsageContent': 'Here will go the text about how VoltGo uses collected data to provide services, improve experience and communicate with users.',
+    'locationData': '3. Location Data',
+    'locationDataContent': 'Here will go the text about how VoltGo collects and uses location data to connect users with nearby technicians.',
+    'dataSharing': '4. Information Sharing',
+    'dataSharingContent': 'Here will go the text about when and with whom VoltGo may share users\' personal information.',
+    'dataSecurity': '5. Data Security',
+    'dataSecurityContent': 'Here will go the text about security measures implemented to protect users\' personal information.',
+    'userRights': '6. User Rights',
+    'userRightsContent': 'Here will go the text about users\' rights regarding their personal data, including access, correction and deletion.',
+    'cookies': '7. Cookies and Similar Technologies',
+    'cookiesContent': 'Here will go the text about the use of cookies and other tracking technologies in VoltGo app.',
+    'thirdPartyServices': '8. Third-Party Services',
+    'thirdPartyServicesContent': 'Here will go the text about third-party services integrated in VoltGo and their privacy policies.',
+    'dataRetention': '9. Data Retention',
+    'dataRetentionContent': 'Here will go the text about how long VoltGo retains users\' personal data.',
+    'minorPrivacy': '10. Children\'s Privacy',
+    'minorPrivacyContent': 'Here will go the text about special privacy policies for underage users.',
+    'privacyQuestions': 'For privacy questions, contact us at:',
+  },
+  'es': {
+   'editElectricVehicle': 'Editar Vehículo Eléctrico',
+    'vehicleUpdated': '¡Vehículo Actualizado!',
+    'vehicleUpdatedSuccess': 'Tu vehículo ha sido actualizado exitosamente.',
+    'vehicleUpdateError': 'Error al actualizar el vehículo',
+    'updateVehicle': 'Actualizar Vehículo',    
+    // Términos y Condiciones - ESPAÑOL
+    'termsAndConditions': 'Términos y Condiciones',
+    'lastUpdated': 'Última actualización: Enero 2025',
+    'acceptance': '1. Aceptación de los Términos',
+    'acceptanceContent': 'Aquí irá el texto sobre la aceptación de los términos y condiciones de uso de la aplicación VoltGo.',
+    'serviceDescription': '2. Descripción del Servicio',
+    'serviceDescriptionContent': 'Aquí irá el texto que describe los servicios ofrecidos por VoltGo, incluyendo carga de vehículos eléctricos y asistencia técnica.',
+    'userResponsibilities': '3. Responsabilidades del Usuario',
+    'userResponsibilitiesContent': 'Aquí irá el texto sobre las responsabilidades y obligaciones del usuario al utilizar la plataforma VoltGo.',
+    'technicianObligations': '4. Obligaciones de los Técnicos',
+    'technicianObligationsContent': 'Aquí irá el texto sobre las obligaciones y responsabilidades de los técnicos registrados en la plataforma.',
+    'paymentTerms': '5. Términos de Pago',
+    'paymentTermsContent': 'Aquí irá el texto sobre los términos de pago, facturación y políticas de reembolso.',
+    'limitation': '6. Limitación de Responsabilidad',
+    'limitationContent': 'Aquí irá el texto sobre las limitaciones de responsabilidad de VoltGo ante daños o inconvenientes.',
+    'modifications': '7. Modificaciones',
+    'modificationsContent': 'Aquí irá el texto sobre cómo y cuándo VoltGo puede modificar estos términos y condiciones.',
+    'contactUs': 'Contacto',
+    'questionsContact': 'Si tienes preguntas sobre estos términos, contáctanos en:',
+        'updateVehicle': 'Actualizar Vehículo',
+
+    // Política de Privacidad - ESPAÑOL
+    'privacyPolicy': 'Política de Privacidad',
+    'dataCollection': '1. Información que Recopilamos',
+    'dataCollectionContent': 'Aquí irá el texto sobre qué datos personales recopila VoltGo, incluyendo información de perfil, ubicación y uso de la aplicación.',
+    'dataUsage': '2. Cómo Usamos tu Información',
+    'dataUsageContent': 'Aquí irá el texto sobre cómo VoltGo utiliza los datos recopilados para proporcionar servicios, mejorar la experiencia y comunicarse con los usuarios.',
+    'locationData': '3. Datos de Ubicación',
+    'locationDataContent': 'Aquí irá el texto sobre cómo VoltGo recopila y utiliza datos de ubicación para conectar usuarios con técnicos cercanos.',
+    'dataSharing': '4. Compartir Información',
+    'dataSharingContent': 'Aquí irá el texto sobre cuándo y con quién VoltGo puede compartir información personal de los usuarios.',
+    'dataSecurity': '5. Seguridad de Datos',
+    'dataSecurityContent': 'Aquí irá el texto sobre las medidas de seguridad implementadas para proteger la información personal de los usuarios.',
+    'userRights': '6. Derechos del Usuario',
+    'userRightsContent': 'Aquí irá el texto sobre los derechos de los usuarios respecto a sus datos personales, incluyendo acceso, corrección y eliminación.',
+    'cookies': '7. Cookies y Tecnologías Similares',
+    'cookiesContent': 'Aquí irá el texto sobre el uso de cookies y otras tecnologías de seguimiento en la aplicación VoltGo.',
+    'thirdPartyServices': '8. Servicios de Terceros',
+    'thirdPartyServicesContent': 'Aquí irá el texto sobre los servicios de terceros integrados en VoltGo y sus políticas de privacidad.',
+    'dataRetention': '9. Retención de Datos',
+    'dataRetentionContent': 'Aquí irá el texto sobre cuánto tiempo VoltGo conserva los datos personales de los usuarios.',
+    'minorPrivacy': '10. Privacidad de Menores',
+    'minorPrivacyContent': 'Aquí irá el texto sobre las políticas especiales de privacidad para usuarios menores de edad.',
+    'privacyQuestions': 'Para preguntas sobre privacidad, contáctanos en:',
+    'call': 'Llamar', 
+    'yourLocation': 'Tu ubicación',
+    'technicianName': 'Técnico', 
+    'phoneNotAvailable': 'Número de teléfono no disponible',
+    'cannotSendMessages': 'No es posible enviar mensajes',
+    'cancelServiceConfirmation': 'Cancelar Servicio',
+    'areYouSureCancel': '¿Estás seguro de que deseas cancelar este servicio?', 
 
 // En español:
       'registerElectricVehicle': 'Registra tu Vehículo Eléctrico',
@@ -746,6 +1000,8 @@ class AppLocalizations {
       'vehicleRegisteredSuccess':
           'Tu vehículo ha sido registrado exitosamente.',
       'continueText': 'Continuar',
+      'tyc': 'Terminos y condiciones',
+
       'selectBrandMessage': 'Por favor selecciona una marca',
       'enterModelMessage': 'Por favor ingresa el modelo',
       'enterYearMessage': 'Por favor ingresa el año',
@@ -773,6 +1029,15 @@ class AppLocalizations {
       'serverConnectionError': 'Error de conexión con el servidor',
       'or': 'O',
       'signInWithGoogle': 'Iniciar sesión con Google',
+      'termsAndConditions': 'Términos y Condiciones', // 'Terms and Conditions'
+'lastUpdated': 'Última actualización: Enero 2025', // 'Last updated: January 2025'
+'acceptance': '1. Aceptación de los Términos', // '1. Acceptance of Terms'
+'serviceDescription': '2. Descripción del Servicio', // '2. Service Description'
+'userResponsibilities': '3. Responsabilidades del Usuario', // '3. User Responsibilities'
+'technicianObligations': '4. Obligaciones de los Técnicos', // '4. Technician Obligations'
+'paymentTerms': '5. Términos de Pago', // '5. Payment Terms'
+'limitation': '6. Limitación de Responsabilidad', // '6. Limitation of Liability'
+'modifications': '7. Modificaciones', // '7. Modifications'
       'signInWithApple': 'Iniciar sesión con Apple',
       'noAccount': '¿No tienes una cuenta? ',
       'createHere': 'Créala aquí.',
@@ -781,6 +1046,7 @@ class AppLocalizations {
       'fullName': 'Nombre completo',
       'yourNameAndSurname': 'Tu nombre y apellido',
       'emailHint': 'tucorreo@ejemplo.com',
+      'politicadeprivacidad': 'Política de privacidad',
       'mobilePhone': 'Teléfono móvil',
       'phoneNumber': 'Número de teléfono',
       'confirmPassword': 'Confirmar contraseña',
@@ -1126,6 +1392,10 @@ String get orRegisterWithEmail => _localizedValues[locale.languageCode]!['orRegi
   String get paymentMethods =>
       _localizedValues[locale.languageCode]!['paymentMethods']!;
   String get vehicle => _localizedValues[locale.languageCode]!['vehicle']!;
+    String get otros => _localizedValues[locale.languageCode]!['otros']!;
+    String get tyc => _localizedValues[locale.languageCode]!['tyc']!;
+    String get politicadeprivacidad => _localizedValues[locale.languageCode]!['politicadeprivacidad']!;
+
   String get manageVehicles =>
       _localizedValues[locale.languageCode]!['manageVehicles']!;
   String get documents => _localizedValues[locale.languageCode]!['documents']!;
@@ -1285,6 +1555,110 @@ String get phoneNumberWillBeUsedFor =>
   String get serviceStatusChanged =>
       _localizedValues[locale.languageCode]!['serviceStatusChanged']!;
 
+
+
+// Y agregar los getters correspondientes:
+String get profileUpdated => _localizedValues[locale.languageCode]!['profileUpdated']!;
+String get profileUpdatedSuccessfully => _localizedValues[locale.languageCode]!['profileUpdatedSuccessfully']!;
+String get accept => _localizedValues[locale.languageCode]!['accept']!;
+String get unsavedChanges => _localizedValues[locale.languageCode]!['unsavedChanges']!;
+String get discardChanges => _localizedValues[locale.languageCode]!['discardChanges']!;
+String get discard => _localizedValues[locale.languageCode]!['discard']!;
+String get save => _localizedValues[locale.languageCode]!['save']!;
+String get basicInformation => _localizedValues[locale.languageCode]!['basicInformation']!;
+String get invalidEmail => _localizedValues[locale.languageCode]!['invalidEmail']!;
+String get phoneMinLength => _localizedValues[locale.languageCode]!['phoneMinLength']!;
+String get saveChanges => _localizedValues[locale.languageCode]!['saveChanges']!;
+String get noChanges => _localizedValues[locale.languageCode]!['noChanges']!;
+String get loading => _localizedValues[locale.languageCode]!['loading']!;
+String get user => _localizedValues[locale.languageCode]!['user']!;
+
+
+// TÉRMINOS Y CONDICIONES - GETTERS
+String get termsAndConditions => 
+    _localizedValues[locale.languageCode]!['termsAndConditions']!;
+String get lastUpdated => 
+    _localizedValues[locale.languageCode]!['lastUpdated']!;
+String get acceptance => 
+    _localizedValues[locale.languageCode]!['acceptance']!;
+String get acceptanceContent => 
+    _localizedValues[locale.languageCode]!['acceptanceContent']!;
+String get serviceDescription => 
+    _localizedValues[locale.languageCode]!['serviceDescription']!;
+String get serviceDescriptionContent => 
+    _localizedValues[locale.languageCode]!['serviceDescriptionContent']!;
+String get userResponsibilities => 
+    _localizedValues[locale.languageCode]!['userResponsibilities']!;
+String get userResponsibilitiesContent => 
+    _localizedValues[locale.languageCode]!['userResponsibilitiesContent']!;
+String get technicianObligations => 
+    _localizedValues[locale.languageCode]!['technicianObligations']!;
+String get technicianObligationsContent => 
+    _localizedValues[locale.languageCode]!['technicianObligationsContent']!;
+String get paymentTerms => 
+    _localizedValues[locale.languageCode]!['paymentTerms']!;
+String get paymentTermsContent => 
+    _localizedValues[locale.languageCode]!['paymentTermsContent']!;
+String get limitation => 
+    _localizedValues[locale.languageCode]!['limitation']!;
+String get limitationContent => 
+    _localizedValues[locale.languageCode]!['limitationContent']!;
+String get modifications => 
+    _localizedValues[locale.languageCode]!['modifications']!;
+String get modificationsContent => 
+    _localizedValues[locale.languageCode]!['modificationsContent']!;
+String get contactUs => 
+    _localizedValues[locale.languageCode]!['contactUs']!;
+String get questionsContact => 
+    _localizedValues[locale.languageCode]!['questionsContact']!;
+
+// POLÍTICA DE PRIVACIDAD - GETTERS
+String get privacyPolicy => 
+    _localizedValues[locale.languageCode]!['privacyPolicy']!;
+String get dataCollection => 
+    _localizedValues[locale.languageCode]!['dataCollection']!;
+String get dataCollectionContent => 
+    _localizedValues[locale.languageCode]!['dataCollectionContent']!;
+String get dataUsage => 
+    _localizedValues[locale.languageCode]!['dataUsage']!;
+String get dataUsageContent => 
+    _localizedValues[locale.languageCode]!['dataUsageContent']!;
+String get locationData => 
+    _localizedValues[locale.languageCode]!['locationData']!;
+String get locationDataContent => 
+    _localizedValues[locale.languageCode]!['locationDataContent']!;
+String get dataSharing => 
+    _localizedValues[locale.languageCode]!['dataSharing']!;
+String get dataSharingContent => 
+    _localizedValues[locale.languageCode]!['dataSharingContent']!;
+String get dataSecurity => 
+    _localizedValues[locale.languageCode]!['dataSecurity']!;
+String get dataSecurityContent => 
+    _localizedValues[locale.languageCode]!['dataSecurityContent']!;
+String get userRights => 
+    _localizedValues[locale.languageCode]!['userRights']!;
+String get userRightsContent => 
+    _localizedValues[locale.languageCode]!['userRightsContent']!;
+String get cookies => 
+    _localizedValues[locale.languageCode]!['cookies']!;
+String get cookiesContent => 
+    _localizedValues[locale.languageCode]!['cookiesContent']!;
+String get thirdPartyServices => 
+    _localizedValues[locale.languageCode]!['thirdPartyServices']!;
+String get thirdPartyServicesContent => 
+    _localizedValues[locale.languageCode]!['thirdPartyServicesContent']!;
+String get dataRetention => 
+    _localizedValues[locale.languageCode]!['dataRetention']!;
+String get dataRetentionContent => 
+    _localizedValues[locale.languageCode]!['dataRetentionContent']!;
+String get minorPrivacy => 
+    _localizedValues[locale.languageCode]!['minorPrivacy']!;
+String get minorPrivacyContent => 
+    _localizedValues[locale.languageCode]!['minorPrivacyContent']!;
+String get privacyQuestions => 
+    _localizedValues[locale.languageCode]!['privacyQuestions']!;
+
+ 
 // Status change titles and messages
   String get technicianConfirmedTitle =>
       _localizedValues[locale.languageCode]!['technicianConfirmedTitle']!;
@@ -1306,6 +1680,9 @@ String get phoneNumberWillBeUsedFor =>
       _localizedValues[locale.languageCode]!['serviceCompletedTitle']!;
   String get serviceCompletedMessage =>
       _localizedValues[locale.languageCode]!['serviceCompletedMessage']!;
+
+String get updateVehicle => 
+    _localizedValues[locale.languageCode]!['updateVehicle']! ;
 
 // Service progress
   String get technicianWillDocumentProgress =>
@@ -1353,6 +1730,28 @@ String get phoneNumberWillBeUsedFor =>
       _localizedValues[locale.languageCode]!['noServicesInHistory']!;
   String get requestService =>
       _localizedValues[locale.languageCode]!['requestService']!;
+
+
+// Nuevos getters para ServiceDetails
+String get serviceDetails => _localizedValues[locale.languageCode]!['serviceDetails']!;
+String get errorLoadingDetails => _localizedValues[locale.languageCode]!['errorLoadingDetails']!;
+String get noAdditionalDetails => _localizedValues[locale.languageCode]!['noAdditionalDetails']!;
+String get detailsWillBeAdded => _localizedValues[locale.languageCode]!['detailsWillBeAdded']!;
+String get date => _localizedValues[locale.languageCode]!['date']!;
+String get serviceId => _localizedValues[locale.languageCode]!['serviceId']!;
+String get serviceTimeline => _localizedValues[locale.languageCode]!['serviceTimeline']!;
+String get started => _localizedValues[locale.languageCode]!['started']!;
+String get duration => _localizedValues[locale.languageCode]!['duration']!;
+String get batteryInformation => _localizedValues[locale.languageCode]!['batteryInformation']!;
+String get initialLevel => _localizedValues[locale.languageCode]!['initialLevel']!;
+String get chargeTime => _localizedValues[locale.languageCode]!['chargeTime']!;
+String get serviceNotes => _localizedValues[locale.languageCode]!['serviceNotes']!;
+ String get before => _localizedValues[locale.languageCode]!['before']!;
+String get after => _localizedValues[locale.languageCode]!['after']!;
+String get servicePhotos => _localizedValues[locale.languageCode]!['servicePhotos']!;
+String get paymentInformation => _localizedValues[locale.languageCode]!['paymentInformation']!;
+String get totalCost => _localizedValues[locale.languageCode]!['totalCost']!;
+String get noServiceHistory => _localizedValues[locale.languageCode]!['noServiceHistory']!;
 
 // Títulos y navegación
   String get registerElectricVehicle =>
@@ -1411,6 +1810,33 @@ String get phoneNumberWillBeUsedFor =>
       _localizedValues[locale.languageCode]!['vehicleRegisteredSuccess']!;
   String get continueText =>
       _localizedValues[locale.languageCode]!['continueText']!;
+      String get editElectricVehicle => 
+    _localizedValues[locale.languageCode]!['editElectricVehicle']!;
+String get vehicleUpdated => 
+    _localizedValues[locale.languageCode]!['vehicleUpdated']!;
+String get vehicleUpdatedSuccess => 
+    _localizedValues[locale.languageCode]!['vehicleUpdatedSuccess']!;
+String get vehicleUpdateError => 
+    _localizedValues[locale.languageCode]!['vehicleUpdateError']!;
+
+
+      String get tracking => _localizedValues[locale.languageCode]!['tracking']!;
+String get technicianConfirmedPreparing => _localizedValues[locale.languageCode]!['technicianConfirmedPreparing']!;
+String get enRouteToLocation => _localizedValues[locale.languageCode]!['enRouteToLocation']!; 
+String get preparingService => _localizedValues[locale.languageCode]!['preparingService']!;
+String get technicianArrived => _localizedValues[locale.languageCode]!['technicianArrived']!; 
+String get serviceStartedMessage => _localizedValues[locale.languageCode]!['serviceStartedMessage']!; 
+String get serviceCancelledMessage => _localizedValues[locale.languageCode]!['serviceCancelledMessage']!;
+String get distance => _localizedValues[locale.languageCode]!['distance']!;
+String get obtainingLocation => _localizedValues[locale.languageCode]!['obtainingLocation']!;
+String get call => _localizedValues[locale.languageCode]!['call']!; 
+String get yourLocation => _localizedValues[locale.languageCode]!['yourLocation']!;
+String get technicianName => _localizedValues[locale.languageCode]!['technicianName']!; 
+String get phoneNotAvailable => _localizedValues[locale.languageCode]!['phoneNotAvailable']!;
+String get cannotSendMessages => _localizedValues[locale.languageCode]!['cannotSendMessages']!;
+String get cancelServiceConfirmation => _localizedValues[locale.languageCode]!['cancelServiceConfirmation']!;
+String get areYouSureCancel => _localizedValues[locale.languageCode]!['areYouSureCancel']!; 
+
 
 // Mensajes de validación específicos
   String get selectBrandMessage =>

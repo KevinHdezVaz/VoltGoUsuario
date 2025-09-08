@@ -1,4 +1,5 @@
 import 'package:Voltgo_User/data/services/vehicles_service.dart';
+import 'package:Voltgo_User/data/models/User/UserVehicle.dart';
 import 'package:Voltgo_User/l10n/app_localizations.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
 import 'package:flutter/material.dart';
@@ -6,8 +7,13 @@ import 'package:flutter/services.dart';
 
 class AddVehicleScreen extends StatefulWidget {
   final Function onVehicleAdded;
-  const AddVehicleScreen({Key? key, required this.onVehicleAdded})
-      : super(key: key);
+  final UserVehicle? vehicleToEdit; // Usar UserVehicle en lugar de Vehicle
+  
+  const AddVehicleScreen({
+    Key? key, 
+    required this.onVehicleAdded,
+    this.vehicleToEdit,
+  }) : super(key: key);
 
   @override
   _AddVehicleScreenState createState() => _AddVehicleScreenState();
@@ -42,7 +48,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     'GB/T',
   ];
 
-  // ✅ Se agregó la opción 'Otro'
   final List<Map<String, dynamic>> _popularBrands = [
     {'name': 'Tesla', 'icon': '⚡'},
     {'name': 'Nissan', 'icon': '🚗'},
@@ -55,22 +60,14 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     {'name': 'Otro', 'icon': '➕'},
   ];
 
-  // ✅ Se agregó la opción 'Otro' con un ícono para diferenciarla
-  final List<Map<String, dynamic>> _colors = [
-    {'name': 'Blanco', 'color': Colors.white},
-    {'name': 'Negro', 'color': Colors.black},
-    {'name': 'Gris', 'color': Colors.grey},
-    {'name': 'Plata', 'color': Colors.grey.shade300},
-    {'name': 'Rojo', 'color': Colors.red},
-    {'name': 'Azul', 'color': Colors.blue},
-    {'name': 'Verde', 'color': Colors.green},
-    {'name': 'Otro', 'color': null, 'icon': Icons.add},
-  ];
+  String? _selectedBrand;
+  String? _selectedConnectorType;
+  String? _selectedColor;
 
-// ✅ MÉTODO: Obtener lista de marcas con localización
+  bool get isEditing => widget.vehicleToEdit != null;
+
   List<Map<String, dynamic>> _getLocalizedBrands(AppLocalizations l10n) {
     final brands = List<Map<String, dynamic>>.from(_popularBrands);
-    // Actualizar solo el último elemento que es 'Otro'
     brands[brands.length - 1] = {'name': l10n.other, 'icon': '➕'};
     return brands;
   }
@@ -87,10 +84,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
       {'name': l10n.other, 'color': null, 'icon': Icons.add},
     ];
   }
-
-  String? _selectedBrand;
-  String? _selectedConnectorType;
-  String? _selectedColor;
 
   @override
   void initState() {
@@ -110,6 +103,48 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Mover la lógica de población de campos aquí donde el contexto está disponible
+    if (isEditing) {
+      _populateFieldsForEditing();
+    }
+  }
+
+  void _populateFieldsForEditing() {
+    final vehicle = widget.vehicleToEdit!;
+    
+    _makeController.text = vehicle.make;
+    _modelController.text = vehicle.model;
+    _yearController.text = vehicle.year.toString();
+    _plateController.text = vehicle.plate ?? '';
+    _connectorTypeController.text = vehicle.connectorType;
+
+    // Configurar marca seleccionada
+    if (_popularBrands.any((brand) => brand['name'] == vehicle.make)) {
+      _selectedBrand = vehicle.make;
+    } else {
+      // Usar string literal en lugar de localización aquí
+      _selectedBrand = 'Otro';
+    }
+
+    // Configurar color seleccionado - simplificar sin usar localización aquí
+    if (vehicle.color != null && vehicle.color!.isNotEmpty) {
+      // Lista básica de colores sin localización para la inicialización
+      final basicColors = ['Blanco', 'Negro', 'Gris', 'Plata', 'Rojo', 'Azul', 'Verde'];
+      if (basicColors.contains(vehicle.color)) {
+        _selectedColor = vehicle.color;
+        _colorController.text = vehicle.color!;
+      } else {
+        _selectedColor = 'Otro';
+        _colorController.text = vehicle.color!;
+      }
+    }
+
+    _selectedConnectorType = vehicle.connectorType;
+  }
+
+  @override
   void dispose() {
     _animationController.dispose();
     _pageController.dispose();
@@ -123,7 +158,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
   }
 
   void _nextStep() {
-    // Validar el formulario antes de avanzar
     if (_formKey.currentState!.validate()) {
       if (_currentStep < 2) {
         setState(() {
@@ -153,17 +187,17 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
 
   bool _validateCurrentStep() {
     switch (_currentStep) {
-      case 0: // Paso 1: Marca, Modelo, Año
+      case 0:
         return _makeController.text.trim().isNotEmpty &&
             _modelController.text.trim().isNotEmpty &&
             _yearController.text.trim().isNotEmpty &&
             _isValidYear(_yearController.text.trim());
-      case 1: // Paso 2: Placa y Color
+      case 1:
         return _plateController.text.trim().isNotEmpty &&
             _selectedColor != null &&
             (_selectedColor != 'Otro' ||
                 _colorController.text.trim().isNotEmpty);
-      case 2: // Paso 3: Conector
+      case 2:
         return _selectedConnectorType != null;
       default:
         return false;
@@ -177,9 +211,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     return year >= 1990 && year <= currentYear + 1;
   }
 
-  // ✅ Lógica de envío actualizada
   Future<void> _submitVehicle() async {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     if (!_formKey.currentState!.validate()) return;
     if (!_validateCurrentStep()) return;
@@ -187,25 +220,41 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     setState(() => _isLoading = true);
 
     try {
-      final String finalColor = (_selectedColor == l10n.other) // ✅ CAMBIAR
+      final String finalColor = (_selectedColor == l10n.other)
           ? _colorController.text.trim()
           : _selectedColor!;
 
-      await VehicleService.addVehicle(
-        make: _makeController.text.trim(),
-        model: _modelController.text.trim(),
-        year: int.parse(_yearController.text.trim()),
-        plate: _plateController.text.trim(), // Añadido
-        color: finalColor, // Añadido
-        connectorType: _connectorTypeController.text.trim(),
-      );
+      if (isEditing) {
+        // Usar el método existente updateUserVehicle
+        await VehicleService.updateUserVehicle(
+          vehicleId: widget.vehicleToEdit!.id,
+          make: _makeController.text.trim(),
+          model: _modelController.text.trim(),
+          year: int.parse(_yearController.text.trim()),
+          plate: _plateController.text.trim(),
+          color: finalColor,
+          connectorType: _connectorTypeController.text.trim(),
+        );
+      } else {
+        // Usar el método existente addVehicle
+        await VehicleService.addVehicle(
+          make: _makeController.text.trim(),
+          model: _modelController.text.trim(),
+          year: int.parse(_yearController.text.trim()),
+          plate: _plateController.text.trim(),
+          color: finalColor,
+          connectorType: _connectorTypeController.text.trim(),
+        );
+      }
 
       _showSuccessDialog();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${l10n.vehicleRegistrationError}: $e', // ✅ CAMBIAR de 'Error al registrar el vehículo: $e'
+            isEditing 
+                ? '${l10n.vehicleUpdateError}: $e'
+                : '${l10n.vehicleRegistrationError}: $e',
             style: TextStyle(color: AppColors.textOnPrimary),
           ),
           backgroundColor: AppColors.error,
@@ -217,9 +266,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     }
   }
 
-  // ✅ El diálogo ahora llama a onVehicleAdded para la navegación
   void _showSuccessDialog() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     showDialog(
       context: context,
@@ -248,7 +296,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
               ),
               const SizedBox(height: 20),
               Text(
-                l10n.vehicleRegistered, // ✅ CAMBIAR de '¡Vehículo Registrado!'
+                isEditing 
+                    ? l10n.vehicleUpdated
+                    : l10n.vehicleRegistered,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -257,7 +307,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
               ),
               const SizedBox(height: 12),
               Text(
-                l10n.vehicleRegisteredSuccess, // ✅ CAMBIAR de 'Tu vehículo ha sido registrado exitosamente.'
+                isEditing 
+                    ? l10n.vehicleUpdatedSuccess
+                    : l10n.vehicleRegisteredSuccess,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -269,8 +321,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.of(context).pop(); // Cierra el diálogo
-                    widget.onVehicleAdded(); // Llama al callback para navegar
+                    Navigator.of(context).pop();
+                    widget.onVehicleAdded();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -280,7 +332,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
                     ),
                   ),
                   child: Text(
-                    l10n.continueText, // ✅ CAMBIAR de 'Continuar'
+                    l10n.continueText,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -334,7 +386,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
   }
 
   Widget _buildHeader() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 56, 24, 24),
@@ -361,7 +413,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
           ),
           const SizedBox(height: 12),
           Text(
-            l10n.registerElectricVehicle, // ✅ CAMBIAR de 'Registra tu Vehículo Eléctrico'
+            isEditing 
+                ? l10n.editElectricVehicle
+                : l10n.registerElectricVehicle,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -370,7 +424,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
           ),
           SizedBox(height: 4),
           Text(
-            '${l10n.step} ${_currentStep + 1} ${l10n.off} 3', // ✅ CAMBIAR de 'Paso ${_currentStep + 1} de 3'
+            '${l10n.step} ${_currentStep + 1} ${l10n.off} 3',
             style: TextStyle(
               fontSize: 14,
               color: Colors.white.withOpacity(0.9),
@@ -403,9 +457,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     );
   }
 
-// ✅ CORREGIR _buildStep1() - Agregar listeners para actualizar estado
   Widget _buildStep1() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -413,7 +466,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            l10n.vehicleInformation, // ✅ CAMBIAR de 'Información del Vehículo'
+            l10n.vehicleInformation,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -422,7 +475,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
           ),
           const SizedBox(height: 24),
           Text(
-            l10n.brand, // ✅ CAMBIAR de 'Marca'
+            l10n.brand,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -434,8 +487,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
             spacing: 8,
             runSpacing: 8,
             children: _getLocalizedBrands(l10n).map((brand) {
-              // ✅ USAR MÉTODO LOCALIZADO
-
               final isSelected = _selectedBrand == brand['name'];
               return ChoiceChip(
                 label: Row(
@@ -452,7 +503,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
                     if (selected) {
                       _selectedBrand = brand['name'];
                       if (_selectedBrand == l10n.other) {
-                        // ✅ CAMBIAR comparación
                         _makeController.clear();
                       } else {
                         _makeController.text = _selectedBrand!;
@@ -471,14 +521,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
           const SizedBox(height: 16),
           TextFormField(
             controller: _makeController,
-            enabled: _selectedBrand == l10n.other ||
-                _selectedBrand == null, // ✅ CAMBIAR comparación
+            enabled: _selectedBrand == l10n.other || _selectedBrand == null,
             decoration: InputDecoration(
-              hintText: l10n
-                  .writeBrandHint, // ✅ CAMBIAR de 'Escribe una marca si no está en la lista'
+              hintText: l10n.writeBrandHint,
               filled: true,
-              fillColor: (_selectedBrand != l10n.other &&
-                      _selectedBrand != null) // ✅ CAMBIAR comparación
+              fillColor: (_selectedBrand != l10n.other && _selectedBrand != null)
                   ? AppColors.gray300.withOpacity(0.3)
                   : AppColors.background,
               border: OutlineInputBorder(
@@ -486,14 +533,12 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
                 borderSide: BorderSide.none,
               ),
             ),
-            // ✅ AGREGAR onChanged para actualizar estado
             onChanged: (value) {
-              setState(() {}); // Reactualizar para habilitar/deshabilitar botón
+              setState(() {});
             },
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return l10n
-                    .selectOrEnterBrand; // ✅ CAMBIAR de 'Por favor, selecciona o ingresa una marca'
+                return l10n.selectOrEnterBrand;
               }
               return null;
             },
@@ -501,14 +546,14 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
           const SizedBox(height: 20),
           _buildEnhancedTextField(
             controller: _modelController,
-            label: l10n.model, // ✅ CAMBIAR de 'Modelo'
-            hint: l10n.modelHint, // ✅ CAMBIAR de 'Ej: Model 3, Leaf, ID.4'
+            label: l10n.model,
+            hint: l10n.modelHint,
             icon: Icons.car_rental,
           ),
           const SizedBox(height: 20),
           _buildEnhancedTextField(
             controller: _yearController,
-            label: l10n.year, // ✅ CAMBIAR de 'Año'
+            label: l10n.year,
             hint: DateTime.now().year.toString(),
             icon: Icons.calendar_today,
             keyboardType: TextInputType.number,
@@ -522,9 +567,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     );
   }
 
-// ✅ CORREGIR _buildStep2() - Agregar listeners
   Widget _buildStep2() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -532,7 +576,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            l10n.identification, // ✅ CAMBIAR de 'Identificación'
+            l10n.identification,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -542,14 +586,14 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
           const SizedBox(height: 24),
           _buildEnhancedTextField(
             controller: _plateController,
-            label: l10n.plate, // ✅ CAMBIAR de 'Placa'
-            hint: l10n.plateHint, // ✅ CAMBIAR de 'ABC-123'
+            label: l10n.plate,
+            hint: l10n.plateHint,
             icon: Icons.pin,
             textCapitalization: TextCapitalization.characters,
           ),
           const SizedBox(height: 24),
           Text(
-            l10n.color, // ✅ CAMBIAR de 'Color'
+            l10n.color,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -566,16 +610,12 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
               mainAxisSpacing: 12,
               childAspectRatio: 1,
             ),
-            itemCount:
-                _getLocalizedColors(l10n).length, // ✅ USAR MÉTODO LOCALIZADO
+            itemCount: _getLocalizedColors(l10n).length,
             itemBuilder: (context, index) {
-              final colorData =
-                  _getLocalizedColors(l10n)[index]; // ✅ USAR MÉTODO LOCALIZADO
+              final colorData = _getLocalizedColors(l10n)[index];
               final isSelected = _selectedColor == colorData['name'];
 
-              // Caso especial para el botón 'Otro'
               if (colorData['name'] == l10n.other) {
-                // ✅ CAMBIAR comparación
                 return InkWell(
                   onTap: () {
                     setState(() {
@@ -587,8 +627,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color:
-                            isSelected ? AppColors.primary : AppColors.gray300,
+                        color: isSelected ? AppColors.primary : AppColors.gray300,
                         width: isSelected ? 2 : 1,
                       ),
                       borderRadius: BorderRadius.circular(12),
@@ -604,7 +643,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          l10n.other, // ✅ CAMBIAR de 'Otro'
+                          l10n.other,
                           style: TextStyle(
                             fontSize: 12,
                             color: isSelected
@@ -618,7 +657,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
                 );
               }
 
-              // Botones de colores normales
               return InkWell(
                 onTap: () {
                   setState(() {
@@ -663,19 +701,17 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
               );
             },
           ),
-          // Campo de texto condicional para 'Otro' color
           if (_selectedColor == l10n.other) ...[
-            // ✅ CAMBIAR comparación
             const SizedBox(height: 16),
             _buildEnhancedTextField(
               controller: _colorController,
-              label: l10n.specifyColor, // ✅ CAMBIAR de 'Especifica el color'
+              label: l10n.specifyColor,
               hint: l10n.colorHint,
               icon: Icons.color_lens_outlined,
               validator: (value) {
-                if (_selectedColor == l10n.other && // ✅ CAMBIAR comparación
+                if (_selectedColor == l10n.other &&
                     (value == null || value.trim().isEmpty)) {
-                  return l10n.enterColor; // ✅ CAMBIAR de 'Ingresa un color'
+                  return l10n.enterColor;
                 }
                 return null;
               },
@@ -695,7 +731,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            l10n.technicalSpecs, // ✅ Ahora está envuelto en Text widget
+            l10n.technicalSpecs,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -704,7 +740,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
           ),
           const SizedBox(height: 24),
           Text(
-            l10n.connectorType, // ✅ Ahora está envuelto en Text widget
+            l10n.connectorType,
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -754,7 +790,6 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     );
   }
 
-// ✅ CORREGIR _buildEnhancedTextField() - Agregar onChanged por defecto
   Widget _buildEnhancedTextField({
     required TextEditingController controller,
     required String label,
@@ -765,7 +800,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     TextCapitalization textCapitalization = TextCapitalization.none,
     String? Function(String?)? validator,
   }) {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -783,9 +818,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
           textCapitalization: textCapitalization,
-          // ✅ AGREGAR onChanged para actualizar estado
           onChanged: (value) {
-            setState(() {}); // Reactualizar para habilitar/deshabilitar botón
+            setState(() {});
           },
           decoration: InputDecoration(
             hintText: hint,
@@ -808,25 +842,20 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
           validator: validator ??
               (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return l10n
-                      .fieldRequired; // ✅ CAMBIAR de 'Este campo es requerido'
+                  return l10n.fieldRequired;
                 }
                 if (label == l10n.year) {
-                  // ✅ CAMBIAR comparación
                   final year = int.tryParse(value);
                   if (year == null) {
-                    return l10n
-                        .numbersOnly; // ✅ CAMBIAR de 'Ingresa solo números'
+                    return l10n.numbersOnly;
                   }
                   final currentYear = DateTime.now().year;
                   if (year < 1990 || year > currentYear + 1) {
-                    return '${l10n.yearRange} 1990 ${l10n.and} ${currentYear + 1}'; // ✅ CAMBIAR mensaje
+                    return '${l10n.yearRange} 1990 ${l10n.and} ${currentYear + 1}';
                   }
                 }
                 if (label == l10n.plate && value.trim().length < 3) {
-                  // ✅ CAMBIAR comparación
-                  return l10n
-                      .plateMinLength; // ✅ CAMBIAR de 'La placa debe tener al menos 3 caracteres'
+                  return l10n.plateMinLength;
                 }
                 return null;
               },
@@ -835,59 +864,47 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     );
   }
 
-// 8. En _getValidationMessage() - Todos los mensajes de validación:
   String _getValidationMessage() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     switch (_currentStep) {
       case 0:
         if (_makeController.text.trim().isEmpty) {
-          return l10n
-              .selectBrandMessage; // ✅ CAMBIAR de 'Por favor selecciona una marca'
+          return l10n.selectBrandMessage;
         }
         if (_modelController.text.trim().isEmpty) {
-          return l10n
-              .enterModelMessage; // ✅ CAMBIAR de 'Por favor ingresa el modelo'
+          return l10n.enterModelMessage;
         }
         if (_yearController.text.trim().isEmpty) {
-          return l10n
-              .enterYearMessage; // ✅ CAMBIAR de 'Por favor ingresa el año'
+          return l10n.enterYearMessage;
         }
         if (!_isValidYear(_yearController.text.trim())) {
-          return l10n
-              .validYearMessage; // ✅ CAMBIAR de 'Por favor ingresa un año válido'
+          return l10n.validYearMessage;
         }
         break;
       case 1:
         if (_plateController.text.trim().isEmpty) {
-          return l10n
-              .enterPlateMessage; // ✅ CAMBIAR de 'Por favor ingresa la placa'
+          return l10n.enterPlateMessage;
         }
         if (_selectedColor == null) {
-          return l10n
-              .selectColorMessage; // ✅ CAMBIAR de 'Por favor selecciona un color'
+          return l10n.selectColorMessage;
         }
         if (_selectedColor == l10n.other &&
             _colorController.text.trim().isEmpty) {
-          // ✅ CAMBIAR comparación
-          return l10n
-              .specifyColorMessage; // ✅ CAMBIAR de 'Por favor especifica el color'
+          return l10n.specifyColorMessage;
         }
         break;
       case 2:
         if (_selectedConnectorType == null) {
-          return l10n
-              .selectConnectorMessage; // ✅ CAMBIAR de 'Por favor selecciona el tipo de conector'
+          return l10n.selectConnectorMessage;
         }
         break;
     }
-    return l10n
-        .completeRequiredFields; // ✅ CAMBIAR de 'Por favor completa todos los campos requeridos'
+    return l10n.completeRequiredFields;
   }
 
-// ✅ CORREGIR _buildActions() - Cambiar lógica del botón
   Widget _buildActions() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -914,22 +931,19 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Text(l10n.previous), // ✅ CAMBIAR de 'Anterior'
+                child: Text(l10n.previous),
               ),
             ),
           if (_currentStep > 0) const SizedBox(width: 12),
           Expanded(
             flex: _currentStep == 0 ? 1 : 2,
             child: ElevatedButton(
-              // ✅ CAMBIAR LÓGICA: Solo verificar si está cargando
               onPressed: _isLoading
                   ? null
                   : () {
-                      // Validar solo antes de ejecutar la acción
                       if (_validateCurrentStep()) {
                         _nextStep();
                       } else {
-                        // Mostrar mensaje si no es válido
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(_getValidationMessage()),
@@ -963,8 +977,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
                         Text(
                           _currentStep < 2
                               ? l10n.next
-                              : l10n
-                                  .register, // ✅ CAMBIAR de 'Siguiente' y 'Registrar'
+                              : (isEditing ? l10n.updateVehicle : l10n.register),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,

@@ -1,7 +1,8 @@
 import 'package:Voltgo_User/data/models/User/ServiceRequestModel.dart';
 import 'package:Voltgo_User/data/services/HistoryService.dart';
 import 'package:Voltgo_User/l10n/app_localizations.dart';
-import 'package:flutter/material.dart';
+import 'package:Voltgo_User/ui/HistoryScreen/ServiceDetailsScreen.dart';
+ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
 
@@ -15,7 +16,7 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen>
     with SingleTickerProviderStateMixin {
   late Future<List<ServiceRequestModel>> _historyFuture;
-  String _selectedFilter = 'all'; // Valor neutral en lugar de 'Todo'
+  String _selectedFilter = 'all';
 
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -44,6 +45,17 @@ class _HistoryScreenState extends State<HistoryScreen>
     setState(() {
       _historyFuture = HistoryService.fetchHistory();
     });
+  }
+
+  // NUEVO MÉTODO: Navegación a detalles
+  void _navigateToServiceDetails(ServiceRequestModel serviceRequest) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ServiceDetailsScreen(
+          serviceRequest: serviceRequest,
+        ),
+      ),
+    );
   }
 
   String _getLocalizedStatus(String status) {
@@ -86,14 +98,14 @@ class _HistoryScreenState extends State<HistoryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR ESTA LÍNEA
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
-          l10n.serviceHistory, // ✅ CAMBIAR de 'Historial de Servicios'
-          style: TextStyle(
+          l10n.serviceHistory,
+          style: const TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 22,
             color: Colors.white,
@@ -132,10 +144,10 @@ class _HistoryScreenState extends State<HistoryScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: EdgeInsets.fromLTRB(24, 16, 24, 8),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
                 child: Text(
-                  l10n.reviewPreviousServices, // ✅ CAMBIAR de 'Revisa tus servicios anteriores'
-                  style: TextStyle(
+                  l10n.reviewPreviousServices,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: AppColors.textSecondary,
@@ -183,7 +195,6 @@ class _HistoryScreenState extends State<HistoryScreen>
     );
   }
 
-  // ✅ CORREGIR: El método _buildFilterChips
   Widget _buildFilterChips() {
     final l10n = AppLocalizations.of(context);
 
@@ -194,12 +205,11 @@ class _HistoryScreenState extends State<HistoryScreen>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            _buildChip(
-                l10n.all, 'all'), // Pasar valor neutral como segundo parámetro
+            _buildChip(l10n.all, 'all'),
             const SizedBox(width: 12),
-            _buildChip(l10n.completed, 'completed'), // Usar el estado original
+            _buildChip(l10n.completed, 'completed'),
             const SizedBox(width: 12),
-            _buildChip(l10n.cancelled, 'cancelled'), // Usar el estado original
+            _buildChip(l10n.cancelled, 'cancelled'),
           ],
         ),
       ),
@@ -215,7 +225,7 @@ class _HistoryScreenState extends State<HistoryScreen>
       onTapCancel: () => _animationController.reverse(),
       onTap: () {
         HapticFeedback.lightImpact();
-        _filterHistory(filterValue); // Usar el valor del filtro, no el label
+        _filterHistory(filterValue);
       },
       child: ScaleTransition(
         scale: _scaleAnimation,
@@ -229,8 +239,7 @@ class _HistoryScreenState extends State<HistoryScreen>
             ),
           ),
           selected: isSelected,
-          onSelected: (_) =>
-              _filterHistory(filterValue), // Usar el valor del filtro
+          onSelected: (_) => _filterHistory(filterValue),
           selectedColor: AppColors.primary,
           backgroundColor: AppColors.white,
           checkmarkColor: AppColors.textOnPrimary,
@@ -247,7 +256,7 @@ class _HistoryScreenState extends State<HistoryScreen>
   }
 
   Widget _buildHistoryItem(ServiceRequestModel item) {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     IconData icon;
     Color statusColor;
@@ -261,9 +270,20 @@ class _HistoryScreenState extends State<HistoryScreen>
         icon = Icons.cancel;
         statusColor = AppColors.error;
         break;
-      default:
-        icon = Icons.hourglass_empty;
+      case 'pending':
+        icon = Icons.schedule;
         statusColor = AppColors.warning;
+        break;
+      case 'accepted':
+      case 'en_route':
+      case 'on_site':
+      case 'charging':
+        icon = Icons.hourglass_empty;
+        statusColor = AppColors.primary;
+        break;
+      default:
+        icon = Icons.help_outline;
+        statusColor = AppColors.textSecondary;
     }
 
     return GestureDetector(
@@ -272,7 +292,7 @@ class _HistoryScreenState extends State<HistoryScreen>
       onTapCancel: () => _animationController.reverse(),
       onTap: () {
         HapticFeedback.lightImpact();
-        // TODO: Navigate to service details screen
+        _navigateToServiceDetails(item); // ACTUALIZADO: Navegar a detalles
       },
       child: ScaleTransition(
         scale: _scaleAnimation,
@@ -297,9 +317,7 @@ class _HistoryScreenState extends State<HistoryScreen>
                   child: Icon(icon, color: statusColor, size: 28),
                 ),
                 title: Text(
-                  _getLocalizedStatus(
-                      item.status), // ✅ CAMBIAR para mostrar estado localizado
-
+                  _getLocalizedStatus(item.status),
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
@@ -307,17 +325,16 @@ class _HistoryScreenState extends State<HistoryScreen>
                   ),
                 ),
                 subtitle: Text(
-                  '${_formatDateTime(item.acceptedAt)} • ${_getLocalizedStatus(item.status)}', // ✅ MEJORAR formato
-
+                  '${_formatDateTime(item.acceptedAt ?? item.requestedAt)} • ${_getLocalizedStatus(item.status)}',
                   style: TextStyle(
                     fontSize: 14,
                     color: statusColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                trailing: item.status != null
+                trailing: item.finalCost != null // CORREGIDO: usar finalCost
                     ? Text(
-                        '\$${item.status}', // ✅ N
+                        '\$${item.finalCost!.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
@@ -356,7 +373,7 @@ class _HistoryScreenState extends State<HistoryScreen>
   }
 
   Widget _buildErrorState(String error) {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Center(
       child: Column(
@@ -369,7 +386,7 @@ class _HistoryScreenState extends State<HistoryScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            '${l10n.errorLoadingHistory}: $error', // ✅ CAMBIAR de 'Error al cargar el historial: $error'
+            '${l10n.errorLoadingHistory}: $error',
             style: const TextStyle(
               fontSize: 16,
               color: AppColors.textSecondary,
@@ -389,8 +406,8 @@ class _HistoryScreenState extends State<HistoryScreen>
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text(
-              l10n.retry, // ✅ CAMBIAR de 'Reintentar'
-              style: TextStyle(fontWeight: FontWeight.w600),
+              l10n.retry,
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -399,7 +416,7 @@ class _HistoryScreenState extends State<HistoryScreen>
   }
 
   Widget _buildEmptyState() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
+    final l10n = AppLocalizations.of(context);
 
     return Center(
       child: Column(
@@ -412,8 +429,8 @@ class _HistoryScreenState extends State<HistoryScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            l10n.noServicesInHistory, // ✅ CAMBIAR de 'No tienes servicios en tu historial.'
-            style: TextStyle(
+            l10n.noServicesInHistory,
+            style: const TextStyle(
               fontSize: 16,
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
@@ -423,6 +440,7 @@ class _HistoryScreenState extends State<HistoryScreen>
           ElevatedButton(
             onPressed: () {
               HapticFeedback.lightImpact();
+              // TODO: Navigate to request service screen
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -433,8 +451,8 @@ class _HistoryScreenState extends State<HistoryScreen>
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: Text(
-              l10n.requestService, // ✅ CAMBIAR de 'Solicitar Servicio'
-              style: TextStyle(fontWeight: FontWeight.w600),
+              l10n.requestService,
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],

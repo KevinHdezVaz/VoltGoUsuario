@@ -12,10 +12,14 @@ import 'package:Voltgo_User/data/services/auth_api_service.dart';
 import 'package:Voltgo_User/l10n/app_localizations.dart';
 import 'package:Voltgo_User/ui/MenuPage/ClientRealTimeTrackingWidget.dart';
 import 'package:Voltgo_User/ui/login/CompleteProfileScreen.dart';
+import 'package:Voltgo_User/utils/ChatNotificationProvider.dart';
+import 'package:Voltgo_User/utils/OneSignalService.dart';
+import 'package:Voltgo_User/utils/RatingDialog.dart';
 import 'package:Voltgo_User/utils/TokenStorage.dart';
 import 'package:Voltgo_User/utils/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
@@ -25,6 +29,7 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 
 import 'package:lottie/lottie.dart';
+import 'package:provider/provider.dart';
 
 enum PassengerStatus { idle, searching, driverAssigned, onTrip, completed }
 
@@ -89,6 +94,7 @@ class _PassengerMapScreenState extends State<PassengerMapScreen>
     _logic = DashboardLogic();
     _initializeAnimations();
     _initializeProgressAnimations();
+  _initializeOneSignal();
 
     WidgetsBinding.instance.addObserver(this);
     _checkVehicleRegistration();
@@ -173,8 +179,95 @@ class _PassengerMapScreenState extends State<PassengerMapScreen>
     _logic.dispose();
     _statusCheckTimer?.cancel();
     _searchingAnimationTimer?.cancel();
+      OneSignalService.setContext(this.context); // Limpiar contexto
+
     super.dispose();
   }
+ 
+
+// ✅ AGREGAR ESTE MÉTODO NUEVO
+// ✅ MODIFICA tu método _getCurrentUserId() en PassengerMapScreen:
+
+Future<String?> _getCurrentUserId() async {
+  try {
+    // Opción 1: Si tienes el user ID guardado en storage
+    const storage = FlutterSecureStorage();
+    final userId = await storage.read(key: 'user_id');
+    if (userId != null) {
+      print('✅ User ID encontrado en storage: $userId');
+      return userId;
+    }
+    
+    // Opción 2: Consultarlo desde tu API (que ya estás haciendo)
+    final token = await TokenStorage.getToken();
+    if (token == null) return null;
+    
+    final url = Uri.parse('${Constants.baseUrl}/user/profile');
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Accept': 'application/json',
+    };
+    
+    final response = await http.get(url, headers: headers);
+    if (response.statusCode == 200) {
+      final userData = jsonDecode(response.body);
+      final userId = userData['id']?.toString(); // ✅ CAMBIO: usar 'id' directamente
+      
+      if (userId != null) {
+        // Guardar para futuras referencias
+        await storage.write(key: 'user_id', value: userId);
+        print('✅ User ID obtenido desde API: $userId');
+        return userId;
+      }
+    }
+  } catch (e) {
+    print('❌ Error obteniendo user ID: $e');
+  }
+  return null;
+}
+
+// ✅ Y modifica tu _initializeOneSignal() para asegurar que se llame setAuthenticatedUser:
+
+Future<void> _initializeOneSignal() async {
+  try {
+    print('🔔 Inicializando OneSignal...');
+    
+    if (!OneSignalService.isInitialized) {
+      await OneSignalService.initialize();
+      print('✅ OneSignal inicializado');
+    }
+    
+    OneSignalService.setContext(context);
+    print('✅ Contexto configurado para OneSignal');
+    
+    final token = await TokenStorage.getToken();
+    if (token != null) {
+      final userId = await _getCurrentUserId();
+      if (userId != null) {
+        print('🚀 Configurando usuario autenticado: $userId');
+        
+        // ✅ ESTA ES LA LLAMADA CLAVE QUE FALTABA:
+        await OneSignalService.setAuthenticatedUser(userId, token);
+        print('✅ Usuario autenticado configurado en OneSignal: $userId');
+        
+        // Forzar registro del dispositivo
+        await OneSignalService.forceRegisterDevice();
+        print('✅ Dispositivo registrado forzosamente');
+        
+        // Verificar después de un delay
+        OneSignalService.checkRegistrationAfterDelay();
+        print('✅ Verificación programada después del delay');
+      } else {
+        print('❌ No se pudo obtener el user ID');
+      }
+    } else {
+      print('❌ No hay token disponible');
+    }
+  } catch (e) {
+    print('❌ Error inicializando OneSignal: $e');
+  }
+}  
+
 
   // ✅ NUEVO: Configurar listener global para cambios de estado
   void _setupStatusChangeListener() {
@@ -801,37 +894,116 @@ class _PassengerMapScreenState extends State<PassengerMapScreen>
               ],
             ),
           ),
-          IconButton(
-            onPressed: _openChat,
-            icon: Icon(Icons.message, color: AppColors.primary, size: 18),
-          ),
+        _buildChatButtonWithBadge(),
         ],
       ),
     );
   }
 
-  Widget _buildChatButton() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 8),
-      child: ElevatedButton.icon(
-        onPressed: _openChat,
-        icon: const Icon(Icons.chat_bubble_outline, size: 18),
-        label: Text(
-          'Chat con técnico',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+
+Widget _buildChatButtonWithBadge() {
+  return Consumer<ChatNotificationProvider>(
+    builder: (context, notificationProvider, child) {
+      final unreadCount = notificationProvider.getUnreadCount(_activeRequest?.id ?? 0);
+      
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          IconButton(
+            onPressed: _openChat,
+            icon: Icon(Icons.message, color: AppColors.primary, size: 18),
           ),
+          if (unreadCount > 0)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 20,
+                  minHeight: 20,
+                ),
+                child: Text(
+                  unreadCount > 99 ? '99+' : unreadCount.toString(),
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      );
+    },
+  );
+}
+
+ Widget _buildChatButton() {
+  return Consumer<ChatNotificationProvider>(
+    builder: (context, notificationProvider, child) {
+      final unreadCount = notificationProvider.getUnreadCount(_activeRequest?.id ?? 0);
+      
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 8),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            ElevatedButton.icon(
+              onPressed: _openChat,
+              icon: const Icon(Icons.chat_bubble_outline, size: 18),
+              label: Text(
+                'Chat con técnico',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                right: 12,
+                top: -5,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 24,
+                    minHeight: 24,
+                  ),
+                  child: Text(
+                    unreadCount > 99 ? '99+' : unreadCount.toString(),
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   Future<void> _initializeMap() async {
     setState(() => _isLoading = true);
@@ -930,91 +1102,72 @@ class _PassengerMapScreenState extends State<PassengerMapScreen>
     }
   }
 
-  Future<void> _checkForActiveServiceOnStartup() async {
-    try {
-      print('🔍 Verificando servicios activos al iniciar la app...');
 
-      // Verificar si hay vehículo registrado primero
-      if (!_hasVehicleRegistered) {
-        print('⚠️ Usuario no tiene vehículo registrado');
-        return;
-      }
+Future<void> _checkForActiveServiceOnStartup() async {
+  try {
+    print('🔍 Verificando servicios activos al iniciar la app...');
 
-      // Obtener servicio activo del servidor
-      final activeService = await ServiceRequestService.getActiveService();
+    // Verificar si hay vehículo registrado primero
+    if (!_hasVehicleRegistered) {
+      print('⚠️ Usuario no tiene vehículo registrado');
+      return;
+    }
 
-      if (activeService != null) {
-        print(
-            '🎯 Servicio activo encontrado: ${activeService.id} - Estado: ${activeService.status}');
+    // Obtener servicio activo del servidor
+    final activeService = await ServiceRequestService.getActiveService();
 
-        setState(() {
-          _hasActiveService = true;
-          _existingRequest = activeService;
-          _activeRequest = activeService;
-          _lastKnownStatus = activeService
-              .status; // ✅ IMPORTANTE: Establecer el estado conocido
+    if (activeService != null) {
+      print('🎯 Servicio activo encontrado: ${activeService.id} - Estado: ${activeService.status}');
 
-          // ✅ ESTABLECER EL ESTADO CORRECTO DE LA UI SEGÚN EL STATUS
-          switch (activeService.status) {
-            case 'pending':
-              _passengerStatus = PassengerStatus.searching;
-              _startStatusChecker();
-              _startSearchingAnimation();
-              break;
+      setState(() {
+        _hasActiveService = true;
+        _existingRequest = activeService;
+        _activeRequest = activeService;
+        _lastKnownStatus = activeService.status;
 
-            case 'accepted':
-            case 'en_route':
-              _passengerStatus = PassengerStatus.driverAssigned;
-              _loadTechnicianData(activeService);
-              _startTechnicianLocationTracking();
-              // ✅ RESTAURAR TIMER DE CANCELACIÓN
-              _updateCancellationTimeInfo().then((_) {
-                if (_canStillCancel && _cancellationTimeRemaining > 0) {
-                  _startCancellationTimer();
-                }
-              });
-              break;
-
-            case 'on_site':
-            case 'charging':
-              _passengerStatus = PassengerStatus.onTrip;
-              _loadTechnicianData(activeService);
-              if (activeService.status == 'charging') {
-                _hasServiceStarted = true;
-                // Cargar progreso del servicio
-                _loadServiceProgressFromBackend();
-              }
-              break;
-
-            case 'completed':
-              _passengerStatus = PassengerStatus.completed;
-              _showRatingDialog();
-              break;
-
-            default:
-              _passengerStatus = PassengerStatus.idle;
-              break;
-          }
-        });
-
-        // ✅ MOSTRAR EL PANEL si hay servicio activo
-        if (_passengerStatus != PassengerStatus.idle) {
-          _slideController.forward();
+        // ✅ CAMBIO PRINCIPAL: NO CAMBIAR _passengerStatus automáticamente
+        // Solo almacenar la información del servicio, pero mantener la UI en idle
+        // El usuario debe decidir si quiere ver el servicio activo
+        
+        // ✅ SOLO cargar datos del técnico si es necesario para futuras acciones
+        switch (activeService.status) {
+          case 'accepted':
+          case 'en_route':
+          case 'on_site':
+          case 'charging':
+            _loadTechnicianData(activeService);
+            if (activeService.status == 'charging') {
+              _hasServiceStarted = true;
+              // No cargar progreso hasta que el usuario abra el panel
+            }
+            break;
+          
+          case 'completed':
+            // Este es el único caso donde sí debemos mostrar algo al usuario
+            _passengerStatus = PassengerStatus.completed;
+            _showRatingDialog();
+            break;
+            
+          default:
+            // Para 'pending' y otros estados, NO cambiar _passengerStatus
+            // Se mantiene en idle hasta que el usuario presione el botón
+            break;
         }
+      });
 
-        // ✅ INICIAR MONITOREO DE ESTADO
-        _startStatusChecker();
+      // ✅ INICIAR MONITOREO EN BACKGROUND sin afectar la UI
+      _startStatusChecker();
 
-        print('✅ Estado de la UI restaurado: $_passengerStatus');
-      } else {
-        print('ℹ️ No hay servicios activos al iniciar');
-        _ensureIdleState();
-      }
-    } catch (e) {
-      print('❌ Error verificando servicios activos al iniciar: $e');
+      print('✅ Servicio activo detectado pero UI permanece en idle');
+    } else {
+      print('ℹ️ No hay servicios activos al iniciar');
       _ensureIdleState();
     }
+  } catch (e) {
+    print('❌ Error verificando servicios activos al iniciar: $e');
+    _ensureIdleState();
   }
+}
 
 // 2. ✅ NUEVO: Verificación silenciosa de servicios activos
   Future<void> _checkForActiveServiceSilently() async {
@@ -2000,144 +2153,596 @@ bool _isUserProfileComplete(UserModel user) {
     }
   }
 
-  Future<void> _requestService() async {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
 
-    print('🚀 _requestService called');
+ 
 
-    // ✅ NUEVA VERIFICACIÓN: Verificar vehículo registrado ANTES que todo
-    if (!_hasVehicleRegistered) {
-      print(
-          '⚠️ Usuario no tiene vehículo registrado, verificando en servidor...');
-      try {
-        final hasVehicle = await UserService.hasRegisteredVehicle();
-        if (!hasVehicle) {
-          print('❌ Confirmado: No tiene vehículo registrado');
-          _navigateToVehicleRegistration();
-          return;
-        }
-        // Si tiene vehículo, actualizar estado local
-        setState(() => _hasVehicleRegistered = true);
-        print('✅ Vehículo verificado, continuando con solicitud...');
-      } catch (e) {
-        print('❌ Error verificando vehículo: $e');
-        _showErrorMessage('Error al verificar tu vehículo registrado');
-        return;
-      }
-    }
 
-    // ✅ VERIFICAR SERVICIOS ACTIVOS MÁS ROBUSTAMENTE
-    if (_hasActiveService && _existingRequest != null) {
-      print('ℹ️ Ya hay un servicio activo, mostrando diálogo');
+Future<void> _requestService() async {
+  final l10n = AppLocalizations.of(context);
 
-      _showActiveServiceDialog();
-      return;
-    }
+  print('🚀 _requestService called');
 
-    // ✅ VERIFICACIÓN ADICIONAL: Consultar servidor antes de crear nuevo servicio
-    try {
-      final serverActiveService =
-          await ServiceRequestService.getActiveService();
-      if (serverActiveService != null) {
-        print('ℹ️ Servicio activo encontrado en servidor durante solicitud');
-        setState(() {
-          _hasActiveService = true;
-          _existingRequest = serverActiveService;
-          _activeRequest = serverActiveService;
-        });
-        _showActiveServiceDialog();
-        return;
-      }
-    } catch (e) {
-      print('⚠️ Error verificando servicios activos antes de crear: $e');
-      // Continuar con la creación si hay error en la verificación
-    }
-
-    // ✅ VERIFICAR ESTADO DE LA UI
-    if (_passengerStatus != PassengerStatus.idle) {
-      print('ℹ️ Estado no es idle: $_passengerStatus');
-      return;
-    }
-
-    // ✅ VERIFICAR UBICACIÓN
-    HapticFeedback.mediumImpact();
-    final position = await _logic.getCurrentUserPosition();
-    if (position == null) {
-      _showErrorMessage(l10n
-          .couldNotGetLocation); // ✅ CAMBIAR de 'No se pudo obtener tu ubicación'
-
-      return;
-    }
-
-    print(
-        '🚀 Requesting service at: ${position.latitude}, ${position.longitude}');
-
-    // ✅ INICIAR PROCESO DE BÚSQUEDA
+  // ✅ VERIFICACIÓN: Si hay servicio activo, mostrar el panel correspondiente
+  if (_hasActiveService && _existingRequest != null) {
+    print('ℹ️ Hay un servicio activo, determinando qué mostrar...');
+    
+    // ✅ AQUÍ SÍ cambiamos el estado de la UI porque el usuario solicitó verlo
     setState(() {
-      _passengerStatus = PassengerStatus.searching;
-      _isLoading = true;
+      switch (_existingRequest!.status) {
+        case 'pending':
+          _passengerStatus = PassengerStatus.searching;
+          _startSearchingAnimation();
+          break;
+        case 'accepted':
+        case 'en_route':
+          _passengerStatus = PassengerStatus.driverAssigned;
+          _updateCancellationTimeInfo().then((_) {
+            if (_canStillCancel && _cancellationTimeRemaining > 0) {
+              _startCancellationTimer();
+            }
+          });
+          break;
+        case 'on_site':
+        case 'charging':
+          _passengerStatus = PassengerStatus.onTrip;
+          if (_existingRequest!.status == 'charging') {
+            _loadServiceProgressFromBackend();
+          }
+          break;
+        case 'completed':
+          _passengerStatus = PassengerStatus.completed;
+          _showRatingDialog();
+          return; // No abrir panel, solo mostrar diálogo
+        default:
+          _showActiveServiceDialog();
+          return;
+      }
     });
+    
+    // ✅ AHORA SÍ abrir el panel porque el usuario lo solicitó
     _slideController.forward();
-    _startSearchingAnimation();
+    return;
+  }
 
+  // ✅ RESTO DEL CÓDIGO ORIGINAL para crear nuevo servicio...
+  // (Verificaciones de vehículo, ubicación, etc.)
+  
+  if (!_hasVehicleRegistered) {
+    print('⚠️ Usuario no tiene vehículo registrado, verificando en servidor...');
     try {
-      final location = LatLng(position.latitude!, position.longitude!);
-      print('🚀 Creating request for location: $location');
-
-      // ✅ CREAR SOLICITUD EN EL SERVIDOR
-      final newRequest = await ServiceRequestService.createRequest(location);
-      print('✅ Request created successfully: ${newRequest.id}');
-
-      // ✅ ACTUALIZAR ESTADO LOCAL
-      setState(() {
-        _activeRequest = newRequest;
-        _hasActiveService = true;
-        _existingRequest = newRequest;
-        _isLoading = false;
-      });
-
-      // ✅ INICIAR VERIFICADOR DE ESTADO
-      _startStatusChecker();
-    } catch (e) {
-      print('❌ DETAILED ERROR: $e');
-
-      // ✅ MENSAJES DE ERROR PERSONALIZADOS
-      String errorMessage = l10n
-          .errorRequestingService; // ✅ CAMBIAR de 'Error al solicitar el servicio'
-
-      if (e.toString().contains('No hay técnicos disponibles')) {
-        errorMessage = l10n
-            .noTechniciansAvailable; // ✅ CAMBIAR de 'No hay técnicos disponibles en tu área en este momento.'
-      } else if (e.toString().contains('vehicle not registered') ||
-          e.toString().contains('vehículo no registrado')) {
-        errorMessage = l10n
-            .needToRegisterVehicle; // ✅ CAMBIAR de 'Necesitas registrar un vehículo para solicitar el servicio.'
-        setState(() => _hasVehicleRegistered = false);
+      final hasVehicle = await UserService.hasRegisteredVehicle();
+      if (!hasVehicle) {
+        print('❌ Confirmado: No tiene vehículo registrado');
         _navigateToVehicleRegistration();
         return;
-      } else if (e.toString().contains('No autorizado')) {
-        errorMessage = l10n
-            .authorizationError; // ✅ CAMBIAR de 'Error de autorización. Por favor, inicia sesión nuevamente.'
-      } else if (e.toString().contains('Token no encontrado')) {
-        errorMessage = l10n
-            .sessionExpired; // ✅ CAMBIAR de 'Sesión expirada. Por favor, inicia sesión nuevamente.'
       }
-
-      _showErrorMessage(errorMessage);
-
-      // ✅ LIMPIEZA COMPLETA en caso de error
-      setState(() {
-        _passengerStatus = PassengerStatus.idle;
-        _hasActiveService = false;
-        _existingRequest = null;
-        _activeRequest = null;
-        _isLoading = false;
-      });
-      _slideController.reverse();
-      _searchingAnimationTimer?.cancel();
+      setState(() => _hasVehicleRegistered = true);
+      print('✅ Vehículo verificado, continuando con solicitud...');
+    } catch (e) {
+      print('❌ Error verificando vehículo: $e');
+      _showErrorMessage('Error al verificar tu vehículo registrado');
+      return;
     }
   }
 
+  // ✅ VERIFICACIÓN: Consultar servidor antes de crear nuevo servicio
+  try {
+    final serverActiveService = await ServiceRequestService.getActiveService();
+    if (serverActiveService != null) {
+      print('ℹ️ Servicio activo encontrado en servidor durante solicitud');
+      setState(() {
+        _hasActiveService = true;
+        _existingRequest = serverActiveService;
+        _activeRequest = serverActiveService;
+      });
+      _showActiveServiceDialog();
+      return;
+    }
+  } catch (e) {
+    print('⚠️ Error verificando servicios activos antes de crear: $e');
+  }
+
+  // ✅ VERIFICACIÓN: Estado de la UI
+  if (_passengerStatus != PassengerStatus.idle) {
+    print('ℹ️ Estado no es idle: $_passengerStatus');
+    return;
+  }
+
+  // ✅ OBTENER UBICACIÓN y continuar con flujo normal...
+  HapticFeedback.mediumImpact();
+  final position = await _logic.getCurrentUserPosition();
+  if (position == null) {
+    _showErrorMessage(l10n.couldNotGetLocation);
+    return;
+  }
+
+  final location = LatLng(position.latitude!, position.longitude!);
+  print('🚀 Obteniendo estimación para ubicación: $location');
+
+  setState(() => _isLoading = true);
+
+  try {
+    print('📊 Solicitando estimación al servidor...');
+    final estimation = await ServiceRequestService.getServiceEstimation(location);
+    
+    setState(() => _isLoading = false);
+
+    print('💰 Mostrando diálogo de confirmación de precio...');
+    final confirmed = await _showPriceConfirmationDialog(estimation);
+
+    if (confirmed == true) {
+      print('✅ Usuario confirmó el servicio, procediendo a crear solicitud...');
+      await _createConfirmedServiceRequest(location, estimation);
+    } else {
+      print('❌ Usuario canceló la confirmación del servicio');
+    }
+
+  } catch (e) {
+    setState(() => _isLoading = false);
+    print('❌ Error en _requestService: $e');
+    
+    String errorMessage = l10n.errorRequestingService;
+    
+    if (e.toString().contains('No hay técnicos disponibles')) {
+      errorMessage = l10n.noTechniciansAvailable;
+    } else if (e.toString().contains('vehicle not registered')) {
+      errorMessage = l10n.needToRegisterVehicle;
+      setState(() => _hasVehicleRegistered = false);
+      _navigateToVehicleRegistration();
+      return;
+    }
+
+    _showErrorMessage(errorMessage);
+  }
+}
+// ✅ NUEVO: Método para crear solicitud confirmada
+Future<void> _createConfirmedServiceRequest(
+  LatLng location, 
+  Map<String, dynamic> estimation
+) async {
+  print('🔧 Iniciando creación de solicitud confirmada...');
+
+  // ✅ INICIAR PROCESO DE BÚSQUEDA EN LA UI
+  setState(() {
+    _passengerStatus = PassengerStatus.searching;
+    _isLoading = true;
+    
+    // ✅ ESTABLECER precios estimados en la UI desde la estimación
+    _estimatedPrice = double.parse(estimation['total_estimated_cost'].toString());
+    _estimatedTime = int.parse(estimation['estimated_time_minutes'].toString());
+  });
+  
+  _slideController.forward();
+  _startSearchingAnimation();
+
+  try {
+    // ✅ EXTRAER DATOS DE LA ESTIMACIÓN
+    final estimatedCost = double.parse(estimation['total_estimated_cost'].toString());
+    final baseCost = double.parse(estimation['base_cost'].toString());
+    final distanceCost = double.parse(estimation['distance_cost']?.toString() ?? '0.0');
+    final timeCost = double.parse(estimation['time_cost']?.toString() ?? '0.0');
+
+    print('💰 Creando solicitud con precios:');
+    print('  - Total estimado: \$${estimatedCost.toStringAsFixed(2)}');
+    print('  - Costo base: \$${baseCost.toStringAsFixed(2)}');
+    print('  - Costo por distancia: \$${distanceCost.toStringAsFixed(2)}');
+    print('  - Costo por tiempo: \$${timeCost.toStringAsFixed(2)}');
+
+    // ✅ CREAR SOLICITUD CON DATOS DE LA ESTIMACIÓN
+    final newRequest = await ServiceRequestService.createRequest(
+      location,
+      estimatedCost: estimatedCost,
+      baseCost: baseCost,
+      distanceCost: distanceCost,
+      timeCost: timeCost,
+    );
+
+    print('✅ Solicitud creada exitosamente: ${newRequest.id}');
+    print('  - Estado: ${newRequest.status}');
+//    print('  - Costo estimado: \$${newRequest.estimatedEarnings.toStringAsFixed(2)}');
+
+    // ✅ ACTUALIZAR ESTADO LOCAL
+    setState(() {
+      _activeRequest = newRequest;
+      _hasActiveService = true;
+      _existingRequest = newRequest;
+      _isLoading = false;
+    });
+
+    // ✅ INICIAR VERIFICADOR DE ESTADO
+    _startStatusChecker();
+    
+    print('✅ Proceso de solicitud completado, esperando respuesta de técnicos...');
+
+  } catch (e) {
+    print('❌ Error creando solicitud confirmada: $e');
+    
+    // ✅ MENSAJES DE ERROR ESPECÍFICOS
+    String errorMessage = 'Error al crear la solicitud';
+    
+    if (e.toString().contains('NO_TECHNICIANS_AVAILABLE_ON_CREATION')) {
+      errorMessage = 'Los técnicos ya no están disponibles. La disponibilidad cambió mientras confirmabas el servicio. Intenta nuevamente.';
+    } else if (e.toString().contains('No hay técnicos disponibles')) {
+      errorMessage = 'Ya no hay técnicos disponibles en tu área en este momento.';
+    } else if (e.toString().contains('TECHNICIAN_ASSIGNMENT_FAILED')) {
+      errorMessage = 'Error asignando técnicos. Por favor, intenta nuevamente.';
+    } else if (e.toString().contains('SERVICE_REQUEST_CREATION_FAILED')) {
+      errorMessage = 'Error interno al crear la solicitud. Intenta nuevamente.';
+    } else if (e.toString().contains('Token no encontrado')) {
+    //  errorMessage = l10n.sessionExpired;
+    } else if (e.toString().contains('No autorizado')) {
+      //errorMessage = l10n.authorizationError;
+    }
+
+    _showErrorMessage(errorMessage);
+
+    // ✅ LIMPIEZA COMPLETA en caso de error
+    setState(() {
+      _passengerStatus = PassengerStatus.idle;
+      _hasActiveService = false;
+      _existingRequest = null;
+      _activeRequest = null;
+      _isLoading = false;
+      
+      // ✅ RESETEAR variables de UI
+      _estimatedPrice = 0.0;
+      _estimatedTime = 0;
+    });
+    
+    _slideController.reverse();
+    _searchingAnimationTimer?.cancel();
+  }
+}
+ 
+
+
+Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) async {
+  final baseCost = double.parse(estimation['base_cost'].toString());
+  final distanceCost = double.parse(estimation['distance_cost']?.toString() ?? '0');
+  final timeCost = double.parse(estimation['time_cost']?.toString() ?? '0');
+  final totalCost = double.parse(estimation['total_estimated_cost'].toString());
+  final estimatedTime = int.parse(estimation['estimated_time_minutes'].toString());
+  final distance = double.parse(estimation['distance_km'].toString());
+  final availableTechnicians = int.parse(estimation['available_technicians']?.toString() ?? '0');
+
+  return showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true, // Permite controlar el tamaño
+    isDismissible: true, // Permite cerrar deslizando hacia abajo
+    enableDrag: true, // Permite arrastrar para cerrar
+    backgroundColor: Colors.transparent,
+    builder: (context) => DraggableScrollableSheet(
+      initialChildSize: 0.7, // Empieza al 70% de la pantalla
+      minChildSize: 0.5, // Mínimo 50%
+      maxChildSize: 0.95, // Máximo 95%
+      builder: (context, scrollController) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Handle para indicar que se puede deslizar
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            // Contenido scrollable
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(Icons.electric_bolt, color: AppColors.primary, size: 28),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Confirmar Servicio',
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Revisa los detalles antes de continuar',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 24),
+
+                  // Información del servicio
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.gray300),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildEstimationRow('Tiempo estimado', '$estimatedTime min', Icons.access_time),
+                        const Divider(height: 20),
+                        _buildEstimationRow('Distancia', '${distance.toStringAsFixed(1)} km', Icons.near_me),
+                        const Divider(height: 20),
+                        _buildEstimationRow('Técnicos disponibles', '$availableTechnicians', Icons.people),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Desglose de precios - Estilo Uber
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withOpacity(0.05),
+                          Colors.white,
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.receipt_long, color: AppColors.primary, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Desglose de Precio',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        _buildPriceRow('Tarifa base', baseCost),
+                        const SizedBox(height: 8),
+                        _buildPriceRow('Distancia (${distance.toStringAsFixed(1)} km)', distanceCost),
+                        const SizedBox(height: 8),
+                        _buildPriceRow('Tiempo estimado', timeCost),
+                        
+                        const SizedBox(height: 16),
+                        Container(
+                          height: 1,
+                          color: AppColors.gray300,
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Total prominente estilo Uber
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Total',
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '\$${totalCost.toStringAsFixed(2)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Nota informativa
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'El precio final puede variar según el tiempo real del servicio',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+            
+            // Botones fijos en la parte inferior - Estilo Uber
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(color: AppColors.gray300, width: 1),
+                ),
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Botón principal estilo Uber
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.electric_bolt, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Solicitar por \$${totalCost.toStringAsFixed(2)}',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Botón cancelar discreto
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: Text(
+                        'Cancelar',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _buildEstimationRow(String label, String value, IconData icon) {
+  return Row(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, size: 16, color: AppColors.primary),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Text(
+          label, 
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ),
+      Text(
+        value,
+        style: GoogleFonts.inter(
+          fontSize: 14, 
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildPriceRow(String label, double amount) {
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 14, 
+          color: AppColors.textSecondary,
+        ),
+      ),
+      Text(
+        '\$${amount.toStringAsFixed(2)}',
+        style: GoogleFonts.inter(
+          fontSize: 14, 
+          fontWeight: FontWeight.w600,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    ],
+  );
+}
+
+ 
 // 9. ✅ CORREGIR _startSearchingAnimation()
   void _startSearchingAnimation() {
     _searchingAnimationTimer?.cancel();
@@ -2222,53 +2827,53 @@ bool _isUserProfileComplete(UserModel user) {
   }
 
 // 6. ✅ CORREGIR _cancelRide() con limpieza completa
-  void _cancelRide() async {
-    HapticFeedback.lightImpact();
-
-    _showConfirmationDialog(
-      title: 'Cancelar Servicio',
-      message: '¿Estás seguro de que deseas cancelar el servicio?',
-      confirmText: 'Sí, cancelar',
-      onConfirm: () async {
-        Navigator.pop(context);
-
-        // Cancelar timers primero
-        _statusCheckTimer?.cancel();
-        _searchingAnimationTimer?.cancel();
-
-        if (_activeRequest != null) {
-          setState(() => _isLoading = true);
-          try {
-            await ServiceRequestService.cancelRequest(_activeRequest!.id);
-            _showSuccessMessage('Servicio cancelado');
-          } catch (e) {
-            print('❌ Error cancelando en _cancelRide: $e');
-            _showErrorMessage('Error al cancelar: ${e.toString()}');
-          }
+ 
+void _cancelService() {
+  final l10n = AppLocalizations.of(context); // ✅ AGREGAR LOCALIZACIÓN
+  
+  HapticFeedback.lightImpact();
+  _showConfirmationDialog(
+    title: l10n.cancelService, // ✅ CAMBIAR
+    message: l10n.cancelServiceConfirmation, // ✅ CAMBIAR
+    confirmText: l10n.yesCancelService, // ✅ CAMBIAR
+    onConfirm: () async {
+      Navigator.pop(context);
+      // Cancelar timers primero
+      _statusCheckTimer?.cancel();
+      _searchingAnimationTimer?.cancel();
+      
+      if (_activeRequest != null) {
+        setState(() => _isLoading = true);
+        try {
+          await ServiceRequestService.cancelRequest(_activeRequest!.id);
+          _showSuccessMessage(l10n.serviceCancelled); // ✅ CAMBIAR
+        } catch (e) {
+          print('❌ Error cancelando en _cancelRide: $e');
+          _showErrorMessage('${"Error "}: ${e.toString()}'); // ✅ CAMBIAR
         }
-
-        // ✅ LIMPIEZA COMPLETA DEL ESTADO
-        setState(() {
-          _passengerStatus = PassengerStatus.idle;
-          _activeRequest = null;
-          _hasActiveService = false;
-          _existingRequest = null;
-          _isLoading = false;
-
-          // Reiniciar variables de UI
-          _estimatedPrice = 0.0;
-          _estimatedTime = 0;
-          _driverName = '';
-          _driverRating = '5.0';
-          _vehicleInfo = '';
-          _connectorType = '';
-        });
-
-        _logic.removeDriverMarker('driver_1');
-        _slideController.reverse();
-      },
-    );
-  }
+      }
+      
+      // ✅ LIMPIEZA COMPLETA DEL ESTADO
+      setState(() {
+        _passengerStatus = PassengerStatus.idle;
+        _activeRequest = null;
+        _hasActiveService = false;
+        _existingRequest = null;
+        _isLoading = false;
+        // Reiniciar variables de UI
+        _estimatedPrice = 0.0;
+        _estimatedTime = 0;
+        _driverName = '';
+        _driverRating = '5.0';
+        _vehicleInfo = '';
+        _connectorType = '';
+      });
+      
+      _logic.removeDriverMarker('driver_1'); // ✅ CORREGIR SINTAXIS
+      _slideController.reverse();
+    },
+  );
+}
 
 // 9. En _showConfirmationDialog() - líneas aproximadas 2320-2350
   void _showConfirmationDialog({
@@ -3391,162 +3996,36 @@ Future<void> _performFullProfileAndServiceCheck() async {
     _showRatingDialog();
   }
 
-  void _showRatingDialog() {
-    int rating = 5;
-    final commentController = TextEditingController();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.check_circle,
-                    color: AppColors.success,
-                    size: 48,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  '¡Servicio Completado!',
-                  style: GoogleFonts.inter(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Total: \$${_estimatedPrice.toStringAsFixed(2)}',
-                  style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  '¿Cómo fue tu experiencia?',
-                  style: GoogleFonts.inter(fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (index) {
-                    return IconButton(
-                      onPressed: () {
-                        setDialogState(() {
-                          rating = index + 1;
-                        });
-                      },
-                      icon: Icon(
-                        index < rating ? Icons.star : Icons.star_border,
-                        color: AppColors.warning,
-                        size: 32,
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: commentController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    hintText: 'Agregar comentario (opcional)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.gray300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide:
-                          BorderSide(color: AppColors.primary, width: 2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _resetToIdle(); // Reinicia la app directamente
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          'Omitir',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          // Enviar calificación al backend (si tienes esta funcionalidad)
-                          try {
-                            // await ServiceRequestService.submitRating(
-                            //   _activeRequest!.id,
-                            //   rating,
-                            //   commentController.text
-                            // );
-                          } catch (e) {
-                            print('Error enviando calificación: $e');
-                          }
-
-                          Navigator.pop(context);
-                          _showSuccessMessage('¡Gracias por tu calificación!');
-
-                          // Esperar un momento para que se vea el mensaje y luego reiniciar
-                          await Future.delayed(const Duration(seconds: 2));
-                          _resetToIdle();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Enviar',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+void _showRatingDialog() {
+  if (_activeRequest == null) {
+    print('❌ No hay servicio activo para calificar');
+    return;
   }
 
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => RatingDialog(
+      serviceRequestId: _activeRequest!.id,
+      technicianName: _driverName.isNotEmpty ? _driverName : 'Técnico',
+      estimatedPrice: _estimatedPrice,
+      onRatingSubmitted: () {
+        print('✅ Calificación enviada exitosamente');
+        // Esperar un momento y luego resetear
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            _resetToIdle();
+          }
+        });
+      },
+      onSkipped: () {
+        print('⏭️ Calificación omitida');
+        // Resetear inmediatamente si se omite
+        _resetToIdle();
+      },
+    ),
+  );
+}
   void _showErrorMessage(String message) {
     _showMessage(message, AppColors.error, Icons.error_outline);
   }
@@ -4606,94 +5085,168 @@ Positioned(
   }
 
 // Modificar el botón en _buildIdlePanel para mostrar estado correcto
-  Widget _buildIdlePanel() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
 
-    return Container(
-      margin: const EdgeInsets.only(
-        left: 16,
-        right: 16,
-        bottom: 150,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Botón principal de solicitar servicio
+Widget _buildIdlePanel() {
+  final l10n = AppLocalizations.of(context);
+
+  return Container(
+    margin: const EdgeInsets.only(
+      left: 16,
+      right: 16,
+      bottom: 150,
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ✅ BANNER INFORMATIVO si hay servicio activo (sin abrir panel)
+        if (_hasActiveService && _existingRequest != null) ...[
           Container(
             width: double.infinity,
-            height: 120,
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: _hasActiveService
-                    ? [AppColors.warning, AppColors.warning.withOpacity(0.8)]
-                    : [AppColors.primary, AppColors.brandBlue],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                colors: [
+                  Colors.orange.withOpacity(0.15),
+                  Colors.orange.withOpacity(0.05)
+                ],
               ),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
               boxShadow: [
                 BoxShadow(
-                  color: (_hasActiveService
-                          ? AppColors.warning
-                          : AppColors.primary)
-                      .withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+                  color: Colors.orange.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _requestService,
-                borderRadius: BorderRadius.circular(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
+                        color: Colors.orange.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(
-                        _hasActiveService
-                            ? Icons.visibility
-                            : Icons.electric_bolt,
-                        color: AppColors.accent,
-                        size: 32,
+                      child: Icon(Icons.electric_bolt, color: Colors.orange, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tienes un servicio activo',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange.shade800,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            '${_getServiceStatusText(_existingRequest!.status)} • ID: ${_existingRequest!.id}',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: Colors.orange.shade700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _hasActiveService
-                          ? l10n.viewActiveService // ✅ YA EXISTE
-                          : l10n.requestCharge, // ✅ YA EXISTE
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Text(
-                      _hasActiveService
-                          ? l10n.youHaveActiveService // ✅ YA EXISTE
-                          : l10n.tapToFindTechnician, // ✅ YA EXISTE
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                    ),
+                    Icon(Icons.arrow_forward_ios, 
+                         color: Colors.orange.shade600, size: 16),
                   ],
                 ),
-              ),
+                const SizedBox(height: 8),
+                Text(
+                  'Toca el botón para ver los detalles y progreso',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.orange.shade600,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
-      ),
-    );
-  }
 
+        // ✅ BOTÓN PRINCIPAL (ahora funciona tanto para nuevo servicio como para ver activo)
+        Container(
+          width: double.infinity,
+          height: 120,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: _hasActiveService
+                  ? [Colors.orange, Colors.orange.withOpacity(0.8)]
+                  : [AppColors.primary, AppColors.brandBlue],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: (_hasActiveService ? Colors.orange : AppColors.primary)
+                    .withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _requestService, // ✅ El mismo método maneja ambos casos
+              borderRadius: BorderRadius.circular(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _hasActiveService ? Icons.visibility : Icons.electric_bolt,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _hasActiveService 
+                        ? 'Ver Servicio Activo'
+                        : l10n.requestCharge,
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    _hasActiveService
+                        ? 'Estado: ${_getServiceStatusText(_existingRequest!.status)}'
+                        : l10n.tapToFindTechnician,
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
   Widget _buildBottomPanel() {
     Widget content;
 
@@ -4849,7 +5402,7 @@ Positioned(
 
             // Botón de cancelar
             OutlinedButton(
-              onPressed: _cancelRide,
+              onPressed: _cancelService,
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
                 side: BorderSide(color: AppColors.error),
@@ -5312,24 +5865,75 @@ Positioned(
                       const SizedBox(width: 12),
 
                       // Botón de Chat
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.chat,
-                              size: 20, color: Colors.white),
-                          label: Text(l10n.chat), // ✅ CAMBIAR de 'Chat'
-
-                          onPressed: _openChat,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.lightGreen,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            textStyle: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600, fontSize: 16),
-                          ),
-                        ),
-                      ),
+                     // Botón de Chat
+Expanded(
+  child: Stack(
+    clipBehavior: Clip.none,
+    children: [
+      SizedBox(
+        width: double.infinity, // ✅ ASEGURAR QUE USE TODO EL ANCHO
+        child: ElevatedButton(
+          onPressed: _openChat,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.lightGreen,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)
+            ),
+            textStyle: GoogleFonts.inter(
+              fontWeight: FontWeight.w600, 
+              fontSize: 16
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center, // ✅ CENTRAR CONTENIDO
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.chat, size: 20, color: Colors.white),
+              const SizedBox(width: 8), // ✅ ESPACIO ENTRE ICONO Y TEXTO
+              Text(l10n.chat),
+            ],
+          ),
+        ),
+      ),
+      // ✅ BADGE POSICIONADO CORRECTAMENTE
+      Consumer<ChatNotificationProvider>(
+        builder: (context, notificationProvider, child) {
+          final unreadCount = notificationProvider.getUnreadCount(_activeRequest?.id ?? 0);
+          
+          if (unreadCount <= 0) return const SizedBox.shrink();
+          
+          return Positioned(
+            right: 8,
+            top: -8,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 20,
+                minHeight: 20,
+              ),
+              child: Text(
+                unreadCount > 99 ? '99+' : unreadCount.toString(),
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        },
+      ),
+    ],
+  ),
+), 
                     ],
                   ),
                 ],
@@ -5412,25 +6016,27 @@ Positioned(
   }
 
   void _openChat() async {
-    if (_activeRequest == null) {
-      _showErrorSnackbar('No hay servicio activo');
-      return;
-    }
-
-    HapticFeedback.lightImpact();
-
-    // Navegar a la pantalla de chat
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ServiceChatScreen(
-          serviceRequest: _activeRequest!,
-          userType: 'user', // Siempre 'user' en PassengerMapScreen
-        ),
-      ),
-    );
+  if (_activeRequest == null) {
+    _showErrorSnackbar('No hay servicio activo');
+    return;
   }
 
+  HapticFeedback.lightImpact();
+
+  // ✅ NUEVO: Limpiar notificaciones al abrir chat
+  final notificationProvider = Provider.of<ChatNotificationProvider>(context, listen: false);
+  notificationProvider.markAsRead(_activeRequest!.id);
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ServiceChatScreen(
+        serviceRequest: _activeRequest!,
+        userType: 'user',
+      ),
+    ),
+  );
+}
 // Widget para el banner de estado
   Widget _buildStatusBanner() {
     return Container(
@@ -5645,7 +6251,7 @@ Positioned(
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: _cancelRide,
+            onPressed: _cancelService,
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(0, 48),
               side: BorderSide(color: AppColors.error),

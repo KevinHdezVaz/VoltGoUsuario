@@ -1,14 +1,16 @@
-// ✅ PANTALLA DE HISTORIAL DE CHATS - CORREGIDA
+// ✅ PANTALLA DE HISTORIAL DE CHATS - CON NOTIFICACIONES INTEGRADAS
 // Archivo: lib/ui/chat/ChatHistoryScreen.dart
 
 import 'package:Voltgo_User/data/models/User/ServiceRequestModel.dart';
-import 'package:Voltgo_User/data/models/chat/ChatHistoryItem.dart';
 import 'package:Voltgo_User/data/services/ChatService.dart';
 import 'package:Voltgo_User/data/services/ServiceChatScreen.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
-import 'package:flutter/material.dart';
+import 'package:Voltgo_User/utils/ChatNotificationProvider.dart';
+import 'package:Voltgo_User/utils/NotificationBadge.dart'; 
+ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 class ChatHistoryScreen extends StatefulWidget {
   const ChatHistoryScreen({Key? key}) : super(key: key);
@@ -19,7 +21,7 @@ class ChatHistoryScreen extends StatefulWidget {
 
 class _ChatHistoryScreenState extends State<ChatHistoryScreen>
     with TickerProviderStateMixin {
-  List<ChatHistoryItem> _chatHistory = [];
+  List<ChatHistory> _chatHistory = [];
   bool _isLoading = true;
   String? _error;
 
@@ -60,6 +62,11 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
         _chatHistory = history;
         _isLoading = false;
       });
+      
+      // ✅ ACTUALIZAR CONTADOR DESPUÉS DE CARGAR
+      final chatProvider = Provider.of<ChatNotificationProvider>(context, listen: false);
+      chatProvider.forceRefresh();
+      
       print('✅ Historial de chats cargado: ${history.length} conversaciones');
     } catch (e) {
       setState(() {
@@ -78,22 +85,24 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
     await _loadChatHistory();
   }
 
-  void _openChat(ChatHistoryItem chatItem) {
+  void _openChat(ChatHistory chatItem) async {
     HapticFeedback.lightImpact();
 
-    // ✅ VERSIÓN ULTRA SIMPLE - Solo los campos esenciales
+    // ✅ MARCAR COMO LEÍDO ANTES DE ABRIR
+    final chatProvider = Provider.of<ChatNotificationProvider>(context, listen: false);
+    await chatProvider.markAsRead(chatItem.serviceId);
+
+    // Crear ServiceRequestModel básico para el chat
     final serviceRequest = ServiceRequestModel(
       id: chatItem.serviceId,
-      userId: 0, // No importa para el chat
-      status: 'accepted',
+      userId: 0,
+      status: chatItem.serviceStatus,
       requestLat: 0.0,
       requestLng: 0.0,
-      requestedAt: DateTime.now(), // ✅ CORRECCIÓN: Usar DateTime directamente
-      // ✅ DEJAR NULLS - No necesarios para el chat básico
+      requestedAt: DateTime.now(),
       technician: null,
       user: null,
-      technicianId: chatItem.otherParticipant?.id,
-      // Agregar cualquier otro campo requerido como null o valor por defecto
+      technicianId: chatItem.otherParticipant?['id'],
     );
 
     Navigator.push(
@@ -101,10 +110,11 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
       MaterialPageRoute(
         builder: (context) => ServiceChatScreen(
           serviceRequest: serviceRequest,
-          userType: 'user',
+          userType: 'user', // Asumir que es usuario en historial
         ),
       ),
     ).then((_) {
+      // ✅ RECARGAR AL VOLVER
       _loadChatHistory();
     });
   }
@@ -141,13 +151,21 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
         ),
         elevation: 4,
         actions: [
-          RotationTransition(
-            turns: _refreshAnimation,
-            child: IconButton(
-              icon: Icon(Icons.refresh, color: Colors.white),
-              onPressed: _refreshHistory,
-              tooltip: 'Actualizar chats',
-            ),
+          // ✅ BADGE EN EL BOTÓN DE REFRESH
+          Consumer<ChatNotificationProvider>(
+            builder: (context, chatProvider, child) {
+              return NotificationBadge(
+                count: chatProvider.unreadCount,
+                child: RotationTransition(
+                  turns: _refreshAnimation,
+                  child: IconButton(
+                    icon: Icon(Icons.refresh, color: Colors.white),
+                    onPressed: _refreshHistory,
+                    tooltip: 'Actualizar chats',
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -171,11 +189,17 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
     return RefreshIndicator(
       onRefresh: _loadChatHistory,
       color: AppColors.primary,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _chatHistory.length,
-        itemBuilder: (context, index) {
-          return _buildChatItem(_chatHistory[index]);
+      child: Consumer<ChatNotificationProvider>(
+        builder: (context, chatProvider, child) {
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: _chatHistory.length,
+            itemBuilder: (context, index) {
+              final chatItem = _chatHistory[index];
+              final unreadCount = chatProvider.getUnreadCount(chatItem.serviceId);
+              return _buildChatItem(chatItem, unreadCount);
+            },
+          );
         },
       ),
     );
@@ -325,13 +349,17 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
     );
   }
 
-  Widget _buildChatItem(ChatHistoryItem chatItem) {
+  // ✅ ACTUALIZADO: Incluir badge de notificaciones
+  Widget _buildChatItem(ChatHistory chatItem, int unreadCount) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Card(
-        elevation: 2,
+        elevation: unreadCount > 0 ? 4 : 2, // ✅ Mayor elevación si hay no leídos
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
+          side: unreadCount > 0 
+              ? BorderSide(color: AppColors.primary.withOpacity(0.3), width: 1)
+              : BorderSide.none, // ✅ Borde si hay no leídos
         ),
         child: InkWell(
           onTap: () => _openChat(chatItem),
@@ -340,27 +368,35 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Avatar del participante
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.primary.withOpacity(0.3),
-                      width: 2,
+                // ✅ AVATAR CON BADGE
+                NotificationBadge(
+                  count: unreadCount,
+                  offset: const Offset(-4, -4),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: unreadCount > 0 
+                          ? AppColors.primary.withOpacity(0.2)
+                          : AppColors.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: unreadCount > 0 
+                            ? AppColors.primary
+                            : AppColors.primary.withOpacity(0.3),
+                        width: unreadCount > 0 ? 2 : 1,
+                      ),
                     ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      chatItem.otherParticipant?.name.isNotEmpty == true
-                          ? chatItem.otherParticipant!.name[0].toUpperCase()
-                          : 'U',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                    child: Center(
+                      child: Text(
+                        chatItem.otherParticipantName.isNotEmpty
+                            ? chatItem.otherParticipantName[0].toUpperCase()
+                            : 'U',
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                   ),
@@ -373,10 +409,10 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
                     children: [
                       // Nombre
                       Text(
-                        chatItem.otherParticipant?.name ?? 'Usuario',
+                        chatItem.otherParticipantName,
                         style: GoogleFonts.inter(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.w600,
                           color: AppColors.textPrimary,
                         ),
                         maxLines: 1,
@@ -385,11 +421,15 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
                       const SizedBox(height: 4),
                       // Último mensaje
                       Text(
-                        chatItem.lastMessage?.message ?? 'Sin mensajes',
+                        chatItem.lastMessageText.isNotEmpty 
+                            ? chatItem.lastMessageText 
+                            : 'Sin mensajes',
                         style: GoogleFonts.inter(
                           fontSize: 13,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.normal,
+                          color: unreadCount > 0 
+                              ? AppColors.textPrimary
+                              : AppColors.textSecondary,
+                          fontWeight: unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -412,6 +452,23 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
                             ),
                           ),
                           const Spacer(),
+                          // ✅ INDICADOR DE ESTADO DEL SERVICIO
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _getStatusColor(chatItem.serviceStatus).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _getStatusText(chatItem.serviceStatus),
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                color: _getStatusColor(chatItem.serviceStatus),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Text(
                             chatItem.serviceDate,
                             style: GoogleFonts.inter(
@@ -425,11 +482,22 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Flecha
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: AppColors.textSecondary,
+                // ✅ FLECHA CON INDICADOR VISUAL
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: unreadCount > 0 
+                        ? AppColors.primary.withOpacity(0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    size: 16,
+                    color: unreadCount > 0 
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -437,5 +505,47 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
         ),
       ),
     );
+  }
+
+  // ✅ MÉTODOS AUXILIARES PARA ESTADO DEL SERVICIO
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return Colors.orange;
+      case 'accepted':
+      case 'en_route':
+        return Colors.blue;
+      case 'on_site':
+        return Colors.purple;
+      case 'charging':
+        return AppColors.primary;
+      case 'completed':
+        return AppColors.success;
+      case 'cancelled':
+        return AppColors.error;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Pendiente';
+      case 'accepted':
+        return 'Aceptado';
+      case 'en_route':
+        return 'En camino';
+      case 'on_site':
+        return 'En sitio';
+      case 'charging':
+        return 'Cargando';
+      case 'completed':
+        return 'Completado';
+      case 'cancelled':
+        return 'Cancelado';
+      default:
+        return status;
+    }
   }
 }

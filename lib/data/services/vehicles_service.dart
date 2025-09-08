@@ -240,7 +240,7 @@ class VehicleService {
       throw Exception('Error al actualizar el vehículo: $e');
     }
   }
-
+  
   // Obtener vehículos del usuario
   static Future<List<UserVehicle>> getUserVehicles() async {
     final url = Uri.parse('${Constants.baseUrl}/user/vehicles');

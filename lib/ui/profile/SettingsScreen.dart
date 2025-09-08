@@ -1,9 +1,15 @@
+import 'package:Voltgo_User/data/models/User/UserVehicle.dart';
 import 'package:Voltgo_User/data/models/User/user_model.dart';
 import 'package:Voltgo_User/data/services/ChatHistoryScreen.dart';
 import 'package:Voltgo_User/data/services/auth_api_service.dart';
-import 'package:Voltgo_User/l10n/app_localizations.dart';
+import 'package:Voltgo_User/data/services/vehicles_service.dart';
+ import 'package:Voltgo_User/l10n/app_localizations.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
 import 'package:Voltgo_User/ui/login/LoginScreen.dart';
+import 'package:Voltgo_User/ui/login/add_vehicle_screen.dart';
+import 'package:Voltgo_User/ui/profile/EditProfileScreen.dart';
+import 'package:Voltgo_User/ui/profile/PrivacyPolicyScreen.dart';
+import 'package:Voltgo_User/ui/profile/TermsAndConditionsScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -323,6 +329,63 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
+
+
+void _handleEditVehicle() async {
+  final l10n = AppLocalizations.of(context);
+  
+  try {
+    // Obtener vehículos del usuario
+    final vehicles = await VehicleService.getUserVehicles();
+    
+    if (vehicles.isEmpty) {
+      // Si no tiene vehículos, mostrar mensaje
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Dont have vehicles to edit'), // Puedes cambiar el mensaje si es necesario
+          backgroundColor: AppColors.warning,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      // Como solo tiene 1 vehículo, tomar el primero y editarlo
+      final vehicle = vehicles.first;
+      _navigateToEditVehicle(vehicle);
+    }
+  } catch (e) {
+    // Mostrar error si no se pueden cargar los vehículos
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error loading vehicles'), // Puedes cambiar el mensaje si es necesario
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+ 
+ void _navigateToEditVehicle(UserVehicle vehicle) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => AddVehicleScreen(
+        vehicleToEdit: vehicle,
+        onVehicleAdded: () {
+          Navigator.pop(context);
+          // Mostrar mensaje de éxito
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context).vehicleUpdatedSuccess ?? 'Vehículo actualizado exitosamente'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -390,19 +453,37 @@ class _SettingsScreenState extends State<SettingsScreen>
 
                 // Account Section
                 _buildSectionHeader(l10n.account), // ✅ CAMBIAR de 'Cuenta'
+                // En tu SettingsScreen, reemplaza la sección del botón "Editar Perfil":
+
                 _buildSettingsItem(
                   icon: Icons.person_outline,
                   title: l10n.editProfile,
-                  onTap: () {
-                    // TODO: Navigate to edit profile screen
-                  },
-                ),
-                _buildSettingsItem(
-                  icon: Icons.lock_outline,
-                  title: l10n
-                      .securityAndPassword, // ✅ CAMBIAR de 'Seguridad y Contraseña'
-                  onTap: () {
-                    // TODO: Navigate to security screen
+                  onTap: () async {
+                    // Cargar el usuario actual antes de navegar
+                    final user = await AuthService.fetchUserProfile();
+                    if (user != null && mounted) {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProfileScreen(user: user),
+                        ),
+                      );
+
+                      // Si se actualizó el perfil, recargar datos
+                      if (result == true) {
+                        setState(() {
+                          _userFuture = AuthService.fetchUserProfile();
+                        });
+                      }
+                    } else {
+                      // Si no se puede cargar el usuario, mostrar error
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(l10n.couldNotLoadProfile),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                    }
                   },
                 ),
                 _buildSettingsItem(
@@ -427,17 +508,38 @@ class _SettingsScreenState extends State<SettingsScreen>
 
                 // Vehicle Section
                 _buildSectionHeader(l10n.vehicle),
+               _buildSettingsItem(
+  icon: Icons.directions_car_outlined,
+  title: l10n.manageVehicles ?? 'Editar Vehículo', // Singular porque es solo 1
+  onTap: _handleEditVehicle, // Método simplificado
+),
+
+                const Divider(height: 32, color: AppColors.gray300),
+                // Vehicle Section
+                _buildSectionHeader(l10n.otros),
                 _buildSettingsItem(
-                  icon: Icons.directions_car_outlined,
-                  title: l10n.manageVehicles,
+                  icon: Icons.bookmark_outline,
+                  title: l10n.tyc,
                   onTap: () {
-                    Navigator.pushNamed(context, '/add-vehicle');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TermsAndConditionsScreen(),
+                      ),
+                    );
                   },
                 ),
                 _buildSettingsItem(
-                  icon: Icons.article_outlined,
-                  title: l10n.documents, // ✅ CAMBIAR de 'Documentos'
-                  onTap: () {},
+                  icon: Icons.privacy_tip_outlined,
+                  title: l10n.politicadeprivacidad, // ✅ CAMBIAR de 'Documentos'
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PrivacyPolicyScreen(),
+                      ),
+                    );
+                  },
                 ),
 
                 const Divider(height: 32, color: AppColors.gray300),

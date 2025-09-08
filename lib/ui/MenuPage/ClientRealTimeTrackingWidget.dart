@@ -3,13 +3,17 @@ import 'dart:math' as math;
 import 'package:Voltgo_User/data/models/User/ServiceRequestModel.dart';
 import 'package:Voltgo_User/data/services/ServiceChatScreen.dart';
 import 'package:Voltgo_User/data/services/ServiceRequestService.dart';
+import 'package:Voltgo_User/l10n/app_localizations.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
+import 'package:Voltgo_User/utils/ChatNotificationProvider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import 'package:flutter_localizations/flutter_localizations.dart';
+ 
 class RealTimeTrackingScreen extends StatefulWidget {
   final ServiceRequestModel serviceRequest;
   final VoidCallback? onServiceComplete;
@@ -30,20 +34,19 @@ class RealTimeTrackingScreen extends StatefulWidget {
 
 class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
     with TickerProviderStateMixin {
-  GoogleMapController? _mapController;
-  Timer? _trackingTimer;
+  GoogleMapController? _mapController;  Timer? _trackingTimer;
   Timer? _statusTimer;
   ServiceRequestModel? _activeServiceRequest;
 
-  // Ubicaciones
+  // Locations
   LatLng? _technicianLocation;
   late LatLng _clientLocation;
 
-  // Marcadores
+  // Markers
   Set<Marker> _markers = {};
 
-  // Información del servicio
-  late ServiceRequestModel _currentRequest; // ✅ CORREGIDO: agregado late
+  // Service information
+  late ServiceRequestModel _currentRequest;
   double _distanceToClient = 0.0;
   int _estimatedArrivalMinutes = 0;
   String _technicianName = '';
@@ -55,7 +58,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   bool _isLoading = false;
   bool _showDetails = true;
 
-  // Animaciones
+  // Animations
   late AnimationController _pulseController;
   late AnimationController _slideController;
   late Animation<double> _pulseAnimation;
@@ -64,8 +67,6 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   @override
   void initState() {
     super.initState();
-
-    // ✅ CORREGIDO: Inicializar _currentRequest con los datos del widget
     _currentRequest = widget.serviceRequest;
     _activeServiceRequest = widget.serviceRequest;
     _initializeData();
@@ -81,28 +82,19 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
     );
 
     final technician = _currentRequest.technician;
-    _technicianName = technician?.name ?? 'Técnico';
-    // _technicianPhone = technician?.phone ?? '';
-
-    // ✅ CORREGIDO: Parsing seguro del rating
+    _technicianName = technician?.name ?? AppLocalizations.of(context).technicianName;
     _technicianRating =
         double.tryParse(technician?.profile?.averageRating ?? '5.0')
                 ?.toStringAsFixed(1) ??
             '5.0';
-
-    // ✅ CORREGIDO: Usar el getter vehicleDescription del modelo actualizado
     _vehicleInfo =
-        technician?.profile?.vehicleDescription ?? 'Vehículo de servicio';
-
-    // ✅ ALTERNATIVA: Si prefieres construir manualmente el string
-    // _vehicleInfo = _buildVehicleInfoFromTechnician(technician);
+        technician?.profile?.vehicleDescription ?? AppLocalizations.of(context).serviceVehicle;
   }
 
-// ✅ MÉTODO HELPER ALTERNATIVO para construir info del vehículo
   String _buildVehicleInfoFromTechnician(dynamic technician) {
     final profile = technician?.profile;
     if (profile?.vehicleDetails == null || profile.vehicleDetails.isEmpty) {
-      return 'Vehículo de servicio';
+      return AppLocalizations.of(context).serviceVehicle;
     }
 
     final make = profile.vehicleMake ?? '';
@@ -114,7 +106,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
     if (model.isNotEmpty) parts.add(model);
     if (plate.isNotEmpty) parts.add('($plate)');
 
-    return parts.isNotEmpty ? parts.join(' ') : 'Vehículo de servicio';
+    return parts.isNotEmpty ? parts.join(' ') : AppLocalizations.of(context).serviceVehicle;
   }
 
   void _initializeAnimations() {
@@ -148,8 +140,6 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
     _trackingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       await _updateTechnicianLocation();
     });
-
-    // Actualizar inmediatamente
     _updateTechnicianLocation();
   }
 
@@ -199,25 +189,26 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   }
 
   void _handleStatusChange(String newStatus) {
+    final l10n = AppLocalizations.of(context);
     switch (newStatus) {
       case 'on_site':
         _showStatusAlert(
-          '📍 Técnico ha llegado',
-          'El técnico está en tu ubicación y comenzará el servicio.',
+          l10n.technicianArrived,
+          l10n.technicianArrivedMessage,
           Colors.green,
         );
         break;
       case 'charging':
         _showStatusAlert(
-          '⚡ Servicio iniciado',
-          'El técnico ha comenzado la carga de tu vehículo.',
+          l10n.serviceStarted,
+          l10n.serviceStartedMessage,
           AppColors.primary,
         );
         break;
       case 'completed':
         _showStatusAlert(
-          '✅ Servicio completado',
-          'Tu vehículo ha sido cargado exitosamente.',
+          l10n.serviceCompleted,
+          l10n.serviceCompletedMessage,
           Colors.green,
         );
         widget.onServiceComplete?.call();
@@ -225,8 +216,8 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
         break;
       case 'cancelled':
         _showStatusAlert(
-          '❌ Servicio cancelado',
-          'El servicio ha sido cancelado.',
+          l10n.serviceCancelled,
+          l10n.serviceCancelledMessage,
           Colors.red,
         );
         _navigateBackWithResult();
@@ -238,9 +229,9 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
     if (_technicianLocation == null) return;
 
     _distanceToClient = _calculateDistance(
-        _technicianLocation!, _clientLocation); // ✅ CORREGIDO
+        _technicianLocation!, _clientLocation);
     _estimatedArrivalMinutes =
-        (_distanceToClient / 30 * 60).round().clamp(1, 60); // ✅ CORREGIDO
+        (_distanceToClient / 30 * 60).round().clamp(1, 60);
   }
 
   double _calculateDistance(LatLng point1, LatLng point2) {
@@ -262,12 +253,13 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   }
 
   void _updateMarkers() {
+    final l10n = AppLocalizations.of(context);
     _markers = {
       Marker(
         markerId: const MarkerId('client'),
         position: _clientLocation,
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        infoWindow: const InfoWindow(title: 'Tu ubicación'),
+        infoWindow: InfoWindow(title: l10n.yourLocation),
       ),
       if (_technicianLocation != null)
         Marker(
@@ -311,10 +303,10 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Stack(
         children: [
-          // Mapa de fondo
           GoogleMap(
             onMapCreated: (GoogleMapController controller) {
               _mapController = controller;
@@ -333,11 +325,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
             scrollGesturesEnabled: true,
             zoomGesturesEnabled: true,
           ),
-
-          // Header superior
           _buildHeader(),
-
-          // Panel inferior con detalles
           Positioned(
             bottom: 0,
             left: 0,
@@ -347,8 +335,6 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
               child: _buildBottomPanel(),
             ),
           ),
-
-          // Loading overlay
           if (_isLoading) _buildLoadingOverlay(),
         ],
       ),
@@ -356,6 +342,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   }
 
   Widget _buildHeader() {
+    final l10n = AppLocalizations.of(context);
     return Positioned(
       top: 0,
       left: 0,
@@ -386,7 +373,6 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
         ),
         child: Row(
           children: [
-            // Botón de regreso
             IconButton(
               onPressed: () => Navigator.of(context).pop(),
               icon: Container(
@@ -404,16 +390,13 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
                 child: Icon(Icons.arrow_back, color: AppColors.textPrimary),
               ),
             ),
-
             const SizedBox(width: 12),
-
-            // Información del estado
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Seguimiento...',
+                    l10n.tracking,
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -430,12 +413,10 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
                 ],
               ),
             ),
-
-            // Botón de toggle detalles
             IconButton(
               onPressed: () {
                 setState(() {
-                  _showDetails = !_showDetails; // ✅ CORREGIDO
+                  _showDetails = !_showDetails;
                 });
                 if (_showDetails) {
                   _slideController.forward();
@@ -458,7 +439,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
                 child: Icon(
                   _showDetails
                       ? Icons.keyboard_arrow_down
-                      : Icons.keyboard_arrow_up, // ✅ CORREGIDO
+                      : Icons.keyboard_arrow_up,
                   color: AppColors.textPrimary,
                 ),
               ),
@@ -471,7 +452,6 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
 
   Widget _buildBottomPanel() {
     if (!_showDetails) return const SizedBox.shrink();
-
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -488,13 +468,8 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header del técnico
           _buildTechnicianHeader(),
-
-          // Información del servicio
           _buildServiceInfo(),
-
-          // Botones de acción
           _buildActionButtons(),
         ],
       ),
@@ -502,6 +477,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   }
 
   Widget _buildTechnicianHeader() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -516,7 +492,6 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
       ),
       child: Row(
         children: [
-          // Avatar animado del técnico
           AnimatedBuilder(
             animation: _pulseAnimation,
             builder: (context, child) => Transform.scale(
@@ -543,10 +518,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
               ),
             ),
           ),
-
           const SizedBox(width: 16),
-
-          // Información del técnico
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -588,8 +560,6 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
               ],
             ),
           ),
-
-          // Tiempo estimado
           Column(
             children: [
               Text(
@@ -601,7 +571,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
                 ),
               ),
               Text(
-                'minutos',
+                l10n.minutes,
                 style: GoogleFonts.inter(
                   color: Colors.white.withOpacity(0.9),
                   fontSize: 12,
@@ -615,11 +585,11 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   }
 
   Widget _buildServiceInfo() {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          // Información de distancia y estado
           Row(
             children: [
               Icon(Icons.location_on, color: AppColors.primary, size: 20),
@@ -627,8 +597,8 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
               Expanded(
                 child: Text(
                   _technicianLocation != null
-                      ? 'Distancia: ${_distanceToClient.toStringAsFixed(1)} km'
-                      : 'Obteniendo ubicación...',
+                      ? '${l10n.distance}: ${_distanceToClient.toStringAsFixed(1)} km'
+                      : l10n.obtainingLocation,
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: AppColors.textSecondary,
@@ -654,10 +624,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // Barra de progreso del servicio
           _buildProgressIndicator(),
         ],
       ),
@@ -665,8 +632,8 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   }
 
   Widget _buildProgressIndicator() {
+    final l10n = AppLocalizations.of(context);
     double progress = _getServiceProgress();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -674,7 +641,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Progreso del servicio',
+              l10n.serviceProgress,
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -701,81 +668,125 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
       ],
     );
   }
-
-  Widget _buildActionButtons() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Row(
-        children: [
-          // Botón de llamar
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: _callTechnician,
-              icon: Icon(Icons.phone, size: 18),
-              label: Text('Llamar'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.success,
-                side: BorderSide(color: AppColors.success),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // Botón de mensaje
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: _openChat,
-              icon: Icon(Icons.message, size: 18),
-              label: Text('Mensaje'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.info,
-                side: BorderSide(color: AppColors.info),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // Botón de cancelar (si aplica)
-          if (widget.canStillCancel)
+Widget _buildActionButtons() {
+  final l10n = AppLocalizations.of(context);
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), // ✅ Más padding inferior
+    child: Column(
+      children: [
+        // ✅ PRIMERA FILA: Llamar y Mensaje
+        Row(
+          children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () {
-                  _showCancelConfirmation();
-                },
-                icon: Icon(Icons.cancel, size: 18),
-                label: Text('Cancelar'),
+                onPressed: _callTechnician,
+                icon: Icon(Icons.phone, size: 18),
+                label: Text(l10n.call),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.error,
-                  side: BorderSide(color: AppColors.error),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  foregroundColor: AppColors.success,
+                  side: BorderSide(color: AppColors.success),
+                  padding: const EdgeInsets.symmetric(vertical: 14), // ✅ Más padding vertical
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
             ),
-        ],
+            const SizedBox(width: 16), // ✅ Más espacio entre botones
+Expanded(
+  child: Stack(
+    clipBehavior: Clip.none,
+    children: [
+      SizedBox(
+        width: double.infinity, // ✅ FORZAR TODO EL ANCHO
+        child: OutlinedButton(
+          onPressed: _openChat,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.info,
+            side: BorderSide(color: AppColors.info),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center, // ✅ CENTRAR CONTENIDO
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.message, size: 18),
+              const SizedBox(width: 8), // ✅ ESPACIO ENTRE ICONO Y TEXTO
+              Text(l10n.message),
+            ],
+          ),
+        ),
       ),
-    );
-  }
-
+      Consumer<ChatNotificationProvider>(
+        builder: (context, notificationProvider, child) {
+          final unreadCount = notificationProvider.getUnreadCount(widget.serviceRequest.id);
+          if (unreadCount <= 0) return const SizedBox.shrink();
+          return Positioned(
+            right: 6,
+            top: -6,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 20,
+                minHeight: 20,
+              ),
+              child: Text(
+                unreadCount > 99 ? '99+' : unreadCount.toString(),
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        },
+      ),
+    ],
+  ),
+),          ],
+        ),
+        
+        // ✅ SEGUNDA FILA: Botón de cancelar (si aplica)
+        if (widget.canStillCancel) ...[
+          const SizedBox(height: 12), // ✅ Espacio entre filas
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                _showCancelConfirmation();
+              },
+              icon: Icon(Icons.cancel, size: 18),
+              label: Text(l10n.cancel),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: BorderSide(color: AppColors.error),
+                padding: const EdgeInsets.symmetric(vertical: 14), // ✅ Más padding vertical
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
   void _refreshServiceData() async {
     try {
-      // ✅ CORREGIDO: Usar widget.serviceRequest que SÍ tiene datos
       final updatedRequest = await ServiceRequestService.getRequestStatus(
           widget.serviceRequest.id);
       setState(() {
-        // Actualizar las variables internas si las necesitas
         _currentRequest = updatedRequest;
         _activeServiceRequest = updatedRequest;
       });
@@ -785,20 +796,14 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   }
 
   void _openChat() async {
-    // ✅ CORREGIDO: Usar widget.serviceRequest en lugar de _currentRequest
-    // widget.serviceRequest SIEMPRE tiene datos porque se pasa desde la pantalla anterior
-
     HapticFeedback.lightImpact();
-
-    print('🔍 Abriendo chat para servicio: ${widget.serviceRequest.id}');
-    print('📱 Usuario: ${widget.serviceRequest.user?.name ?? 'Desconocido'}');
-
-    // Navegar a la pantalla de chat
+    print('🔍 Opening chat for service: ${widget.serviceRequest.id}');
+    print('📱 User: ${widget.serviceRequest.user?.name ?? 'Unknown'}');
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ServiceChatScreen(
-          serviceRequest: widget.serviceRequest, // ✅ USAR widget.serviceRequest
+          serviceRequest: widget.serviceRequest,
           userType: 'technician',
         ),
       ),
@@ -806,6 +811,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   }
 
   Widget _buildLoadingOverlay() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       color: Colors.black.withOpacity(0.3),
       child: Center(
@@ -823,7 +829,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                'Procesando...',
+                l10n.processing,
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   color: AppColors.textSecondary,
@@ -836,21 +842,21 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
     );
   }
 
-  // Métodos auxiliares
   String _getStatusText() {
+    final l10n = AppLocalizations.of(context);
     switch (_currentRequest.status) {
       case 'accepted':
-        return 'Técnico confirmado, preparándose';
+        return l10n.technicianConfirmedPreparing;
       case 'en_route':
-        return 'En camino hacia tu ubicación';
+        return l10n.enRouteToLocation;
       case 'on_site':
-        return 'Ha llegado a tu ubicación';
+        return l10n.technicianOnSite;
       case 'charging':
-        return 'Cargando tu vehículo';
+        return l10n.chargingVehicle;
       case 'completed':
-        return 'Servicio completado';
+        return l10n.serviceCompleted;
       default:
-        return 'Preparando servicio';
+        return l10n.preparingService;
     }
   }
 
@@ -889,17 +895,19 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
   }
 
   void _callTechnician() async {
+    final l10n = AppLocalizations.of(context);
     if (_technicianPhone.isNotEmpty) {
       final Uri phoneUri = Uri.parse('tel:$_technicianPhone');
       if (await canLaunchUrl(phoneUri)) {
         await launchUrl(phoneUri);
       }
     } else {
-      _showErrorSnackbar('Número de teléfono no disponible');
+      _showErrorSnackbar(l10n.phoneNotAvailable);
     }
   }
 
   void _sendMessage() async {
+    final l10n = AppLocalizations.of(context);
     if (_technicianPhone.isNotEmpty) {
       final message =
           'Hola, soy tu cliente de VoltGo. Te escribo respecto al servicio #${_currentRequest.id}';
@@ -916,21 +924,22 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
         }
       }
     } else {
-      _showErrorSnackbar('No es posible enviar mensajes');
+      _showErrorSnackbar(l10n.cannotSendMessages);
     }
   }
 
   void _showCancelConfirmation() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Cancelar Servicio'),
-        content: Text('¿Estás seguro de que deseas cancelar este servicio?'),
+        title: Text(l10n.cancelServiceConfirmation),
+        content: Text(l10n.areYouSureCancel),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('No'),
+            child: Text(l10n.no),
           ),
           ElevatedButton(
             onPressed: () {
@@ -939,7 +948,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
               Navigator.of(context).pop();
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: Text('Sí, cancelar', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.yesCancel, style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -948,7 +957,6 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
 
   void _showStatusAlert(String title, String message, Color color) {
     HapticFeedback.mediumImpact();
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(

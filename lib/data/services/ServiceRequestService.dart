@@ -6,49 +6,93 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
 class ServiceRequestService {
-  /// ✅ CORREGIDO: createRequest con mejor manejo de errores
-  static Future<ServiceRequestModel> createRequest(LatLng location) async {
-    final url = Uri.parse('${Constants.baseUrl}/service/request');
-    final token = await TokenStorage.getToken();
-    if (token == null) throw Exception('Token no encontrado');
 
-    final headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
 
-    final body = jsonEncode({
-      'request_lat': location.latitude,
-      'request_lng': location.longitude,
-    });
 
-    try {
-      print(
-          '🚀 Creating request at: ${location.latitude}, ${location.longitude}');
-      final response = await http.post(url, headers: headers, body: body);
+// En ServiceRequestService.dart - continuación del método createRequest
 
-      print('📡 Create request response status: ${response.statusCode}');
-      print('📡 Create request response body: ${response.body}');
+static Future<ServiceRequestModel> createRequest(
+  LatLng location, {
+  required double estimatedCost,
+  required double baseCost,
+  double? distanceCost,
+  double? timeCost,
+}) async {
+  final url = Uri.parse('${Constants.baseUrl}/service/request');
+  final token = await TokenStorage.getToken();
 
-      if (response.statusCode == 201) {
-        final jsonData = jsonDecode(response.body);
-        return ServiceRequestModel.fromJson(jsonData);
-      } else if (response.statusCode == 422) {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['message'] ?? 'No hay técnicos disponibles');
-      } else {
-        final errorData = response.body.isNotEmpty
-            ? jsonDecode(response.body)
-            : {'message': 'Error del servidor'};
-        throw Exception(errorData['message'] ??
-            'Error del servidor: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Error in createRequest: $e');
-      rethrow;
-    }
+  if (token == null) {
+    throw Exception('Token no encontrado');
   }
+
+  final headers = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $token',
+  };
+
+  final body = jsonEncode({
+    'request_lat': location.latitude,
+    'request_lng': location.longitude,
+    'estimated_cost': estimatedCost,
+    'base_cost': baseCost,
+    'distance_cost': distanceCost ?? 0.0,
+    'time_cost': timeCost ?? 0.0,
+  });
+
+  print('🚀 Creando solicitud confirmada en: ${location.latitude}, ${location.longitude}');
+  print('📦 Con datos: estimatedCost=$estimatedCost, baseCost=$baseCost');
+
+  final response = await http.post(url, headers: headers, body: body);
+  
+  print('📡 Create request response status: ${response.statusCode}');
+  print('📡 Create request response body: ${response.body}');
+
+  if (response.statusCode == 201) {
+    final data = jsonDecode(response.body);
+    return ServiceRequestModel.fromJson(data);
+  } else {
+    final errorData = jsonDecode(response.body);
+    throw Exception(errorData['message'] ?? 'Error creando solicitud');
+  }
+}
+
+
+
+static Future<Map<String, dynamic>> getServiceEstimation(LatLng location) async {
+  final url = Uri.parse('${Constants.baseUrl}/service/estimate');
+  final token = await TokenStorage.getToken();
+
+  if (token == null) {
+    throw Exception('Token no encontrado');
+  }
+
+  final headers = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $token',
+  };
+
+  final body = jsonEncode({
+    'latitude': location.latitude,
+    'longitude': location.longitude,
+  });
+
+  print('🚀 Obteniendo estimación en: ${location.latitude}, ${location.longitude}');
+
+  final response = await http.post(url, headers: headers, body: body);
+  
+  print('📡 Estimation response status: ${response.statusCode}');
+  print('📡 Estimation response body: ${response.body}');
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    final errorData = jsonDecode(response.body);
+    throw Exception(errorData['message'] ?? 'Error obteniendo estimación');
+  }
+}
+ 
 
   static Future<void> cancelRequest(int requestId) async {
     // ✅ CAMBIO PRINCIPAL: Usar la ruta correcta que coincide con el backend
