@@ -391,19 +391,27 @@ class TechnicianProfile {
   String? get vehicleColor => vehicleDetails?['color']?.toString();
   String? get vehicleConnectorType => vehicleDetails?['connector_type']?.toString();
 
-  String get vehicleDescription {
-    if (vehicleDetails == null || vehicleDetails!.isEmpty) {
-      return 'Vehículo no especificado';
-    }
-
-    final parts = <String>[];
-    if (vehicleYear != null) parts.add(vehicleYear!);
-    if (vehicleMake != null) parts.add(vehicleMake!);
-    if (vehicleModel != null) parts.add(vehicleModel!);
-    if (vehicleColor != null) parts.add('(${vehicleColor!})');
-
-    return parts.isNotEmpty ? parts.join(' ') : 'Vehículo no especificado';
+String get vehicleDescription {
+  // Si no hay detalles del vehículo, retornar mensaje por defecto
+  if (vehicleDetails == null || vehicleDetails!.isEmpty) {
+    return 'Vehículo no especificado';
   }
+
+  // Lista para almacenar las partes de la descripción
+  final parts = <String>[];
+
+  // Agregar cada campo disponible en orden lógico
+  if (vehicleYear != null) parts.add(vehicleYear!);
+  if (vehicleMake != null) parts.add(vehicleMake!);
+  if (vehicleModel != null) parts.add(vehicleModel!);
+  if (vehicleColor != null) parts.add('(${vehicleColor!})');
+  if (vehiclePlate != null) parts.add('(${vehiclePlate!})');
+
+  // Retornar la descripción unida o mensaje por defecto si no hay partes
+  return parts.isNotEmpty 
+      ? parts.join(' ') 
+      : 'Vehículo no especificado';
+}
 }
 
 class VehicleDetails {

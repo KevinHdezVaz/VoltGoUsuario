@@ -1,15 +1,16 @@
-// ✅ PANTALLA PRINCIPAL DE CHAT - CORREGIDA
+// ✅ PANTALLA PRINCIPAL DE CHAT - CORREGIDA CON LOCALIZACIÓN
 // Archivo: lib/ui/chat/ServiceChatScreen.dart
 
 import 'package:Voltgo_User/data/models/User/ServiceRequestModel.dart';
 import 'package:Voltgo_User/data/models/chat/ChatMessage.dart';
 import 'package:Voltgo_User/data/models/chat/ServiceChatScreenRealTime.dart';
 import 'package:Voltgo_User/data/services/ChatService.dart';
+import 'package:Voltgo_User/l10n/app_localizations.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+ 
 class ServiceChatScreen extends StatefulWidget {
   final ServiceRequestModel serviceRequest;
   final String userType; // 'user' o 'technician'
@@ -39,7 +40,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
   // Animaciones
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
-  final ChatPolling _chatPolling = ChatPolling(); // AGREGAR ESTO
+  final ChatPolling _chatPolling = ChatPolling();
 
   @override
   void initState() {
@@ -49,7 +50,6 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
     _startPolling();
   }
 
-  // AGREGAR ESTE MÉTODO
   void _startPolling() {
     _chatPolling.startPolling(widget.serviceRequest.id, (newMessages) {
       if (mounted) {
@@ -88,7 +88,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
       if (widget.userType == 'user') {
         _otherParticipantName =
             widget.serviceRequest.technician?.name ?? 'Técnico';
-        _currentUserId = widget.serviceRequest.userId; // ✅ Usar userId
+        _currentUserId = widget.serviceRequest.userId;
       } else {
         _otherParticipantName = widget.serviceRequest.user?.name ?? 'Cliente';
         _currentUserId = widget.serviceRequest.technicianId ?? 0;
@@ -152,7 +152,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Error al enviar mensaje: ${e.toString()}',
+                  AppLocalizations.of(context)!.errorSendingMessageText(e.toString()),
                   style: GoogleFonts.inter(color: Colors.white),
                 ),
               ),
@@ -187,8 +187,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _chatPolling.stopPolling(); // AGREGAR ESTA LÍNEA
-
+    _chatPolling.stopPolling();
     _slideController.dispose();
     super.dispose();
   }
@@ -221,7 +220,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Chat con $_otherParticipantName',
+            AppLocalizations.of(context)!.chatWithName(_otherParticipantName),
             style: GoogleFonts.inter(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -229,7 +228,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
             ),
           ),
           Text(
-            'Servicio #${widget.serviceRequest.id}',
+            AppLocalizations.of(context)!.serviceNumberId(widget.serviceRequest.id.toString()),
             style: GoogleFonts.inter(
               fontSize: 12,
               color: Colors.white.withOpacity(0.9),
@@ -255,7 +254,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
         IconButton(
           icon: Icon(Icons.refresh, color: Colors.white),
           onPressed: _refreshMessages,
-          tooltip: 'Actualizar mensajes',
+          tooltip: AppLocalizations.of(context)!.updateMessages,
         ),
       ],
     );
@@ -331,7 +330,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'Cargando mensajes...',
+              AppLocalizations.of(context)!.loadingMessages,
               style: GoogleFonts.inter(
                 color: AppColors.textSecondary,
                 fontSize: 14,
@@ -363,7 +362,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                'Error al cargar el chat',
+                AppLocalizations.of(context)!.errorLoadingChat,
                 style: GoogleFonts.inter(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -389,7 +388,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
                   ),
                 ),
                 child: Text(
-                  'Intentar nuevamente',
+                  AppLocalizations.of(context)!.tryAgain,
                   style: GoogleFonts.inter(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -444,7 +443,7 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'Inicia la conversación',
+              AppLocalizations.of(context)!.startConversation,
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -454,8 +453,8 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
             const SizedBox(height: 8),
             Text(
               widget.userType == 'user'
-                  ? 'Comunícate con tu técnico para coordinar el servicio'
-                  : 'Comunícate con el cliente para coordinar el servicio',
+                  ? AppLocalizations.of(context)!.communicateWithTechnician
+                  : AppLocalizations.of(context)!.communicateWithClient,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 14,
@@ -594,8 +593,9 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
                 onSubmitted: canSendMessages ? (_) => _sendMessage() : null,
                 style: GoogleFonts.inter(fontSize: 14),
                 decoration: InputDecoration(
-                  hintText:
-                      canSendMessages ? 'Escribe un mensaje...' : 'Enviando...',
+                  hintText: canSendMessages
+                      ? AppLocalizations.of(context)!.writeMessage
+                      : AppLocalizations.of(context)!.sending,
                   hintStyle: GoogleFonts.inter(
                     color: AppColors.textSecondary,
                     fontSize: 14,
@@ -706,19 +706,19 @@ class _ServiceChatScreenState extends State<ServiceChatScreen>
   String _getStatusText(String status) {
     switch (status) {
       case 'pending':
-        return 'Buscando técnico';
+        return AppLocalizations.of(context)!.statusPending;
       case 'accepted':
-        return 'Técnico asignado';
+        return AppLocalizations.of(context)!.statusAccepted;
       case 'en_route':
-        return 'Técnico en camino';
+        return AppLocalizations.of(context)!.statusEnRoute;
       case 'on_site':
-        return 'Técnico en sitio';
+        return AppLocalizations.of(context)!.statusOnSite;
       case 'charging':
-        return 'Cargando vehículo';
+        return AppLocalizations.of(context)!.statusCharging;
       case 'completed':
-        return 'Servicio completado';
+        return AppLocalizations.of(context)!.statusCompleted;
       case 'cancelled':
-        return 'Servicio cancelado';
+        return AppLocalizations.of(context)!.statusCancelled;
       default:
         return status;
     }

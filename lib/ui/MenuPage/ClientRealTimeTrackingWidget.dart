@@ -316,7 +316,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
             },
             initialCameraPosition: CameraPosition(
               target: _clientLocation,
-              zoom: 14.0,
+              zoom: 10.0,
             ),
             markers: _markers,
             myLocationEnabled: false,

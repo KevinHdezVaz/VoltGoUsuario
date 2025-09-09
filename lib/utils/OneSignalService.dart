@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io'; 
 import 'package:Voltgo_User/data/services/ServiceChatScreen.dart';
 import 'package:Voltgo_User/data/services/ServiceRequestService.dart';
 import 'package:Voltgo_User/utils/ChatNotificationProvider.dart';
 import 'package:Voltgo_User/utils/TokenStorage.dart';
-import 'package:Voltgo_User/utils/constants.dart'; 
+import 'package:Voltgo_User/utils/constants.dart';
 import 'package:event_bus/event_bus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -86,28 +86,31 @@ class OneSignalService {
       _deviceType = Platform.isIOS ? 'ios' : 'android';
       Log.d(_tag, 'Device type detected: $_deviceType');
 
-      // Configurar OneSignal
-      OneSignal.shared.setAppId(_oneSignalAppId);
-      OneSignal.shared.setLogLevel(OSLogLevel.verbose, OSLogLevel.none);
+      // Configurar OneSignal (nueva API v5.x)
+      OneSignal.initialize(_oneSignalAppId);
+      
+      // Configurar logging
+      OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
 
-      // Configurar handlers
-      OneSignal.shared.setNotificationWillShowInForegroundHandler(_handleForegroundNotification);
-      OneSignal.shared.setNotificationOpenedHandler(_handleNotificationOpened);
-      OneSignal.shared.setSubscriptionObserver(_handleSubscriptionChanged);
+      // Configurar handlers para notificaciones
+      OneSignal.Notifications.addForegroundWillDisplayListener(_handleForegroundNotification);
+      OneSignal.Notifications.addClickListener(_handleNotificationClicked);
+      
+      // Configurar handler para cambios de suscripción
+      OneSignal.User.pushSubscription.addObserver(_handleSubscriptionChanged);
 
       // Obtener push token si está disponible
       try {
-        final deviceState = await OneSignal.shared.getDeviceState();
-        if (deviceState != null) {
-          _pushToken = deviceState.pushToken;
-          Log.d(_tag, 'Push token obtained: ${_pushToken != null ? "✓" : "✗"}');
-        }
+        _pushToken = OneSignal.User.pushSubscription.token;
+        _playerId = OneSignal.User.pushSubscription.id;
+        Log.d(_tag, 'Push token obtained: ${_pushToken != null ? "✓" : "✗"}');
+        Log.d(_tag, 'Player ID obtained: ${_playerId != null ? "✓" : "✗"}');
       } catch (e) {
-        Log.e(_tag, 'Error getting device state', e);
+        Log.e(_tag, 'Error getting initial subscription state', e);
       }
 
       // Solicitar permisos
-      final permissionGranted = await OneSignal.shared.promptUserForPushNotificationPermission();
+      final permissionGranted = await OneSignal.Notifications.requestPermission(true);
       Log.i(_tag, 'Push notification permission: ${permissionGranted ? "Granted" : "Denied"}');
 
       _isInitialized = true;
@@ -125,41 +128,26 @@ class OneSignalService {
   }
 
   /// Manejar cambios en suscripción
-  static void _handleSubscriptionChanged(OSSubscriptionStateChanges changes) {
+  static void _handleSubscriptionChanged(OSPushSubscriptionChangedState state) {
     Log.i(_tag, 'Subscription changed');
-    Log.d(_tag, 'Previous user ID: ${changes.from.userId}');
-    Log.d(_tag, 'New user ID: ${changes.to.userId}');
-    Log.d(_tag, 'Is subscribed: ${changes.to.isSubscribed}');
+    Log.d(_tag, 'Previous subscription ID: ${state.previous?.id}');
+    Log.d(_tag, 'Current subscription ID: ${state.current.id}');
+    Log.d(_tag, 'Push token: ${state.current.token}');
+    Log.d(_tag, 'Is opted in: ${state.current.optedIn}');
 
-    _playerId = changes.to.userId;
+    _playerId = state.current.id;
+    _pushToken = state.current.token;
 
     if (_playerId != null && _playerId!.isNotEmpty && _currentUserId != null) {
       Log.i(_tag, 'Player ID received, registering device immediately');
-      _getPushTokenAndRegister();
+      _registerDeviceInBackend(_playerId!);
     } else {
       Log.d(_tag, 'Waiting for authenticated user or player ID not ready yet');
     }
   }
 
-  /// Obtener push token y registrar dispositivo
-  static Future<void> _getPushTokenAndRegister() async {
-    try {
-      final deviceState = await OneSignal.shared.getDeviceState();
-      if (deviceState != null) {
-        _pushToken = deviceState.pushToken;
-        Log.d(_tag, 'Updated push token: ${_pushToken != null ? "Available" : "Not available"}');
-
-        if (_playerId != null && _playerId!.isNotEmpty && _currentUserId != null) {
-          await _registerDeviceInBackend(_playerId!);
-        }
-      }
-    } catch (e, stackTrace) {
-      Log.e(_tag, 'Error getting push token', e, stackTrace);
-    }
-  }
-
   /// Manejar notificaciones en primer plano
-  static void _handleForegroundNotification(OSNotificationReceivedEvent event) {
+  static void _handleForegroundNotification(OSNotificationWillDisplayEvent event) {
     Log.i(_tag, 'Notification received in foreground');
     Log.d(_tag, 'Title: ${event.notification.title}');
     Log.d(_tag, 'Body: ${event.notification.body}');
@@ -171,16 +159,17 @@ class OneSignalService {
     }
 
     // Mostrar la notificación en primer plano
-    event.complete(event.notification);
+    event.preventDefault();
+    event.notification.display();
   }
 
   /// Manejar cuando el usuario toca una notificación
-  static void _handleNotificationOpened(OSNotificationOpenedResult result) {
-    Log.i(_tag, 'Notification opened by user');
-    Log.d(_tag, 'Title: ${result.notification.title}');
-    Log.d(_tag, 'Body: ${result.notification.body}');
+  static void _handleNotificationClicked(OSNotificationClickEvent event) {
+    Log.i(_tag, 'Notification clicked by user');
+    Log.d(_tag, 'Title: ${event.notification.title}');
+    Log.d(_tag, 'Body: ${event.notification.body}');
 
-    final data = result.notification.additionalData;
+    final data = event.notification.additionalData;
     if (data != null) {
       Log.d(_tag, 'Processing notification data: $data');
       _processNotificationData(data, isBackground: true);
@@ -318,7 +307,7 @@ class OneSignalService {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-      };  
+      };
 
       final body = jsonEncode({
         'player_id': playerId,
@@ -384,24 +373,20 @@ class OneSignalService {
     try {
       await _storage.write(key: 'auth_token', value: authToken);
       
+      // En OneSignal v5.x, configurar el usuario externo
+      OneSignal.login(userId);
+      
+      // Obtener el ID de suscripción actual
+      _playerId = OneSignal.User.pushSubscription.id;
+      _pushToken = OneSignal.User.pushSubscription.token;
+      
       if (_playerId != null && _playerId!.isNotEmpty) {
-        Log.i(_tag, 'Player ID already available, registering device');
+        Log.i(_tag, 'Player ID available, registering device');
         await _registerDeviceInBackend(_playerId!);
       } else {
-        Log.d(_tag, 'No player ID yet, checking current device state...');
-        try {
-          final deviceState = await OneSignal.shared.getDeviceState();
-          if (deviceState != null && deviceState.userId != null) {
-            _playerId = deviceState.userId;
-            _pushToken = deviceState.pushToken;
-            Log.i(_tag, 'Found existing player ID: $_playerId');
-            await _registerDeviceInBackend(_playerId!);
-          } else {
-            Log.d(_tag, 'No player ID available yet, will register when OneSignal connects');
-          }
-        } catch (e, stackTrace) {
-          Log.e(_tag, 'Error getting current device state', e, stackTrace);
-        }
+        Log.d(_tag, 'No player ID available yet, will register when OneSignal connects');
+        // Verificar después de un delay
+        checkRegistrationAfterDelay();
       }
       
       Log.i(_tag, 'Authenticated user configured successfully');
@@ -417,10 +402,10 @@ class OneSignalService {
     if (_currentUserId != null && (_playerId == null || _playerId!.isEmpty)) {
       Log.d(_tag, 'Checking registration after delay...');
       try {
-        final deviceState = await OneSignal.shared.getDeviceState();
-        if (deviceState != null && deviceState.userId != null) {
-          _playerId = deviceState.userId;
-          _pushToken = deviceState.pushToken;
+        _playerId = OneSignal.User.pushSubscription.id;
+        _pushToken = OneSignal.User.pushSubscription.token;
+        
+        if (_playerId != null && _playerId!.isNotEmpty) {
           Log.i(_tag, 'Player ID obtained after delay: $_playerId');
           await _registerDeviceInBackend(_playerId!);
         } else {
@@ -441,17 +426,13 @@ class OneSignalService {
     }
 
     try {
-      final deviceState = await OneSignal.shared.getDeviceState();
-      if (deviceState != null) {
-        _playerId = deviceState.userId;
-        _pushToken = deviceState.pushToken;
-        if (_playerId != null && _playerId!.isNotEmpty) {
-          await _registerDeviceInBackend(_playerId!);
-        } else {
-          Log.e(_tag, 'No player ID available for registration');
-        }
+      _playerId = OneSignal.User.pushSubscription.id;
+      _pushToken = OneSignal.User.pushSubscription.token;
+      
+      if (_playerId != null && _playerId!.isNotEmpty) {
+        await _registerDeviceInBackend(_playerId!);
       } else {
-        Log.e(_tag, 'Device state not available');
+        Log.e(_tag, 'No player ID available for registration');
       }
     } catch (e, stackTrace) {
       Log.e(_tag, 'Error in force register device', e, stackTrace);
@@ -464,6 +445,7 @@ class OneSignalService {
     _currentUserId = null;
     try {
       await _storage.delete(key: 'auth_token');
+      OneSignal.logout();
       Log.i(_tag, 'User data cleared successfully');
     } catch (e, stackTrace) {
       Log.e(_tag, 'Error clearing user data', e, stackTrace);
@@ -503,7 +485,11 @@ class OneSignalService {
   static Future<void> setNotificationsEnabled(bool enabled) async {
     Log.i(_tag, 'Setting notifications enabled: $enabled');
     try {
-      await OneSignal.shared.disablePush(!enabled);
+      if (enabled) {
+        OneSignal.User.pushSubscription.optIn();
+      } else {
+        OneSignal.User.pushSubscription.optOut();
+      }
       
       final token = await _getTokenWithValidation();
       final endpoint = enabled ? 'enable-notifications' : 'disable-notifications';

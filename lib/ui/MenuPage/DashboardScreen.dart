@@ -70,7 +70,11 @@ class _PassengerMapScreenState extends State<PassengerMapScreen>
   late Animation<double> _statusFadeAnimation;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
-
+ String? _vehicleYear;
+  String? _vehicleMake;
+  String? _vehicleModel;
+  String? _vehicleColor;
+  String? _vehiclePlate;
   int _searchingDots = 0;
   bool _hasVehicleRegistered = false;
   bool _isCheckingVehicle = true;
@@ -488,6 +492,7 @@ Future<void> _initializeOneSignal() async {
 
 // ✅ Mostrar diálogo de cambio de estado prominente para cambios importantes
   void _showImportantStatusChangeDialog(String status) {
+  final ln10 = AppLocalizations.of(context);
     final statusInfo = _getStatusInfo(status);
 
     showDialog(
@@ -575,7 +580,7 @@ Future<void> _initializeOneSignal() async {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'El técnico documentará el progreso durante el servicio',
+                          ln10.technicianWillDocumentProgress,
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: Colors.green.shade700,
@@ -668,7 +673,7 @@ Future<void> _initializeOneSignal() async {
               const Spacer(),
               if (_serviceStartTime.isNotEmpty)
                 Text(
-                  'Desde $_serviceStartTime',
+                  'From $_serviceStartTime',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     color: AppColors.textSecondary,
@@ -781,7 +786,7 @@ Future<void> _initializeOneSignal() async {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'El técnico está trabajando en tu vehículo',
+                             l10n.technicianWorkingOnVehicle,
                               style: GoogleFonts.inter(
                                 fontSize: 14,
                                 color: AppColors.textSecondary,
@@ -814,7 +819,7 @@ Future<void> _initializeOneSignal() async {
             const SizedBox(height: 20),
 
             // Botón de chat
-            _buildChatButton(),
+       //     _buildChatButton(),
 
             // ✅ INICIAR polling de progreso cuando se muestra esta pantalla
             if (_hasServiceStarted) ...[
@@ -946,6 +951,7 @@ Widget _buildChatButtonWithBadge() {
 }
 
  Widget _buildChatButton() {
+  final l10n = AppLocalizations.of(context);
   return Consumer<ChatNotificationProvider>(
     builder: (context, notificationProvider, child) {
       final unreadCount = notificationProvider.getUnreadCount(_activeRequest?.id ?? 0);
@@ -960,13 +966,13 @@ Widget _buildChatButtonWithBadge() {
               onPressed: _openChat,
               icon: const Icon(Icons.chat_bubble_outline, size: 18),
               label: Text(
-                'Chat con técnico',
+                l10n.chatWithTechnician,
                 style: GoogleFonts.inter(fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -1299,6 +1305,13 @@ Future<void> _checkForActiveServiceOnStartup() async {
               ?.toStringAsFixed(1) ??
           '5.0';
 
+  _vehicleYear = technicianProfile?.vehicleYear;
+    _vehicleMake = technicianProfile?.vehicleMake;
+    _vehicleModel = technicianProfile?.vehicleModel;
+    _vehicleColor = technicianProfile?.vehicleColor;
+    _vehiclePlate = technicianProfile?.vehiclePlate;
+    _vehicleInfo = technicianProfile?.vehicleDescription ?? 'Vehículo de servicio';
+
       // ✅ NUEVO: Usar el método vehicleDescription del modelo actualizado
       _vehicleInfo =
           technicianProfile?.vehicleDescription ?? 'Vehículo de servicio';
@@ -1332,29 +1345,236 @@ Future<void> _checkForActiveServiceOnStartup() async {
     });
   }
 
-// ✅ MÉTODO HELPER ALTERNATIVO para construir info del vehículo manualmente
-  String _buildVehicleInfo(TechnicianProfile? profile) {
-    if (profile?.vehicleDetails == null || profile!.vehicleDetails!.isEmpty) {
-      return 'Vehículo de servicio';
-    }
-
-    final parts = <String>[];
-
-    // Usar los getters del modelo actualizado
-    if (profile.vehicleMake?.isNotEmpty == true) {
-      parts.add(profile.vehicleMake!);
-    }
-
-    if (profile.vehicleModel?.isNotEmpty == true) {
-      parts.add(profile.vehicleModel!);
-    }
-
-    if (profile.vehiclePlate?.isNotEmpty == true) {
-      parts.add('(${profile.vehiclePlate!})');
-    }
-
-    return parts.isNotEmpty ? parts.join(' ') : 'Vehículo de servicio';
+ List<Widget> _buildVehicleInfoWidgets() {
+  final widgets = <Widget>[];
+  
+  
+  if (_vehicleMake != null) {
+    widgets.add(_buildVehicleInfoRow('marca', _vehicleMake!)); // o 'modelo' si prefieres
   }
+  
+  if (_vehicleModel != null) {
+    widgets.add(_buildVehicleInfoRow('modelo', _vehicleModel!));
+  }
+  
+  if (_vehicleColor != null) {
+    widgets.add(_buildVehicleInfoRow('color', _vehicleColor!));
+  }
+  
+  if (_vehiclePlate != null) {
+    widgets.add(_buildVehicleInfoRow('placa', _vehiclePlate!));
+  }
+  
+  // Si no hay información, mostrar mensaje por defecto
+  if (widgets.isEmpty) {
+    widgets.add(
+      Text(
+        'Vehículo de servicio', // ✅ También sin bullet point
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+  
+  return widgets;
+}
+
+ 
+ String _buildVehicleInfo(TechnicianProfile? profile) {
+  if (profile?.vehicleDetails == null || profile!.vehicleDetails!.isEmpty) {
+    return 'Vehículo de servicio';
+  }
+
+  final parts = <String>[];
+
+  // Agregar color con etiqueta si existe
+  if (profile.vehicleColor?.isNotEmpty == true) {
+    parts.add('Color: ${profile.vehicleColor!}');
+  }
+
+  // Combinar marca y modelo con etiqueta si ambos existen
+  if (profile.vehicleMake?.isNotEmpty == true && profile.vehicleModel?.isNotEmpty == true) {
+    parts.add('Brand and Model: ${profile.vehicleMake!} ${profile.vehicleModel!}');
+  } else if (profile.vehicleMake?.isNotEmpty == true) {
+    parts.add('Brand and Model: ${profile.vehicleMake!}');
+  } else if (profile.vehicleModel?.isNotEmpty == true) {
+    parts.add('Brand and Model: ${profile.vehicleModel!}');
+  }
+
+  // Agregar la placa con etiqueta si existe
+  if (profile.vehiclePlate?.isNotEmpty == true) {
+    parts.add('Plate: ${profile.vehiclePlate!}');
+  }
+
+  return parts.isNotEmpty ? parts.join(' - ') : 'Vehículo de servicio';
+}
+
+Widget _buildVehicleInfoContent() {
+  final children = <Widget>[];
+
+  // Agregar color con etiqueta a la izquierda y valor a la derecha
+  if (_vehicleColor?.isNotEmpty == true) {
+    children.add(
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.color_lens, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Color:',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            _vehicleColor!,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Combinar marca y modelo con etiqueta a la izquierda y valor a la derecha
+  if (_vehicleMake?.isNotEmpty == true || _vehicleModel?.isNotEmpty == true) {
+    final brandModel = <String>[];
+    if (_vehicleMake?.isNotEmpty == true) {
+      brandModel.add(_vehicleMake!);
+    }
+    if (_vehicleModel?.isNotEmpty == true) {
+      brandModel.add(_vehicleModel!);
+    }
+    children.add(
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.directions_car, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Brand and Model',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            brandModel.join(' '),
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Agregar la placa con etiqueta a la izquierda y valor a la derecha
+  if (_vehiclePlate?.isNotEmpty == true) {
+    children.add(
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.confirmation_number, color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Plate:',
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            _vehiclePlate!,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Si no hay información, mostrar mensaje por defecto
+  if (children.isEmpty) {
+    children.add(
+      Text(
+        'Vehículo de servicio',
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  } else {
+    // Agregar espaciado entre filas, excepto antes de la primera
+    final spacedChildren = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      if (i > 0) {
+        spacedChildren.add(const SizedBox(height: 12));
+      }
+      spacedChildren.add(children[i]);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: spacedChildren,
+    );
+  }
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: children,
+  );
+}
+Widget _buildVehicleInfoRow(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
 // ✅ MÉTODO HELPER para obtener detalles específicos del vehículo
   String _getVehicleDetail(
@@ -2395,7 +2615,6 @@ Future<void> _createConfirmedServiceRequest(
 }
  
 
-
 Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) async {
   final baseCost = double.parse(estimation['base_cost'].toString());
   final distanceCost = double.parse(estimation['distance_cost']?.toString() ?? '0');
@@ -2405,16 +2624,19 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
   final distance = double.parse(estimation['distance_km'].toString());
   final availableTechnicians = int.parse(estimation['available_technicians']?.toString() ?? '0');
 
+  // Obtener localizaciones
+  final localizations = AppLocalizations.of(context);
+
   return showModalBottomSheet<bool>(
     context: context,
-    isScrollControlled: true, // Permite controlar el tamaño
-    isDismissible: true, // Permite cerrar deslizando hacia abajo
-    enableDrag: true, // Permite arrastrar para cerrar
+    isScrollControlled: true,
+    isDismissible: true,
+    enableDrag: true,
     backgroundColor: Colors.transparent,
     builder: (context) => DraggableScrollableSheet(
-      initialChildSize: 0.7, // Empieza al 70% de la pantalla
-      minChildSize: 0.5, // Mínimo 50%
-      maxChildSize: 0.95, // Máximo 95%
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -2463,7 +2685,7 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Confirmar Servicio',
+                              localizations.confirmService,
                               style: GoogleFonts.inter(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -2471,7 +2693,7 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
                               ),
                             ),
                             Text(
-                              'Revisa los detalles antes de continuar',
+                              localizations.reviewDetailsBeforeContinuing,
                               style: GoogleFonts.inter(
                                 fontSize: 14,
                                 color: AppColors.textSecondary,
@@ -2495,18 +2717,30 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
                     ),
                     child: Column(
                       children: [
-                        _buildEstimationRow('Tiempo estimado', '$estimatedTime min', Icons.access_time),
+                        _buildEstimationRow(
+                          localizations.estimatedTime, 
+                          '$estimatedTime ${localizations.minutes}', 
+                          Icons.access_time
+                        ),
                         const Divider(height: 20),
-                        _buildEstimationRow('Distancia', '${distance.toStringAsFixed(1)} km', Icons.near_me),
+                        _buildEstimationRow(
+                          localizations.distance, 
+                          '${distance.toStringAsFixed(1)} ${localizations.km}', 
+                          Icons.near_me
+                        ),
                         const Divider(height: 20),
-                        _buildEstimationRow('Técnicos disponibles', '$availableTechnicians', Icons.people),
+                        _buildEstimationRow(
+                          localizations.availableTechnicians, 
+                          '$availableTechnicians', 
+                          Icons.people
+                        ),
                       ],
                     ),
                   ),
                   
                   const SizedBox(height: 20),
                   
-                  // Desglose de precios - Estilo Uber
+                  // Desglose de precios
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -2529,7 +2763,7 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
                             Icon(Icons.receipt_long, color: AppColors.primary, size: 20),
                             const SizedBox(width: 8),
                             Text(
-                              'Desglose de Precio',
+                              localizations.priceBreakdown,
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -2540,11 +2774,14 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
                         ),
                         const SizedBox(height: 16),
                         
-                        _buildPriceRow('Tarifa base', baseCost),
+                        _buildPriceRow(localizations.baseFare, baseCost),
                         const SizedBox(height: 8),
-                        _buildPriceRow('Distancia (${distance.toStringAsFixed(1)} km)', distanceCost),
+                        _buildPriceRow(
+                          localizations.distanceFee(distance.toStringAsFixed(1)), 
+                          distanceCost
+                        ),
                         const SizedBox(height: 8),
-                        _buildPriceRow('Tiempo estimado', timeCost),
+                        _buildPriceRow(localizations.estimatedTimeFee, timeCost),
                         
                         const SizedBox(height: 16),
                         Container(
@@ -2553,12 +2790,12 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
                         ),
                         const SizedBox(height: 16),
                         
-                        // Total prominente estilo Uber
+                        // Total prominente
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Total',
+                              localizations.total,
                               style: GoogleFonts.inter(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -2602,7 +2839,7 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'El precio final puede variar según el tiempo real del servicio',
+                            localizations.finalPriceMayVary,
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: Colors.blue.shade700,
@@ -2618,7 +2855,7 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
               ),
             ),
             
-            // Botones fijos en la parte inferior - Estilo Uber
+            // Botones fijos en la parte inferior
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -2631,7 +2868,7 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Botón principal estilo Uber
+                    // Botón principal
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -2651,7 +2888,7 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
                             Icon(Icons.electric_bolt, size: 20),
                             const SizedBox(width: 8),
                             Text(
-                              'Solicitar por \$${totalCost.toStringAsFixed(2)}',
+                              localizations.requestFor('\$${totalCost.toStringAsFixed(2)}'),
                               style: GoogleFonts.inter(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -2668,7 +2905,7 @@ Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) asyn
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(false),
                       child: Text(
-                        'Cancelar',
+                        localizations.cancel,
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           color: AppColors.textSecondary,
@@ -5578,18 +5815,7 @@ Widget _buildIdlePanel() {
                                 color: AppColors.textPrimary,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                '• $_vehicleInfo',
-                                style: GoogleFonts.inter(
-                                  fontSize: 14,
-                                  color: AppColors.textSecondary,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                              ),
-                            ),
+                           
                           ],
                         ),
                       ],
@@ -5630,9 +5856,8 @@ Widget _buildIdlePanel() {
                   ),
                 ],
               ),
-
-              const SizedBox(height: 20),
-
+                         
+ 
               // ✅ Información del servicio
               Container(
                 padding: const EdgeInsets.all(16),
@@ -5642,61 +5867,39 @@ Widget _buildIdlePanel() {
                 ),
                 child: Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.electrical_services,
-                                color: AppColors.primary, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              l10n.connector, // ✅ CAMBIAR de 'Conector'
-                              style: GoogleFonts.inter(
-                                  fontSize: 14, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          _connectorType,
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-
+                  
                     // ✅ Mostrar información diferente según el estado
                     if (!isTechnicianOnSite) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.access_time,
-                                  color: AppColors.primary, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n.estimatedTime, // ✅ CAMBIAR de 'Tiempo estimado'
-                                style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '${_estimatedTime} ${l10n.minutes}', // ✅ CAMBIAR de 'minutos'
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
+                      
+                       const SizedBox(height: 20),
+Card(
+  color: Colors.white.withOpacity(0.9),
+  elevation: 2,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Título
+        Text(
+          "The technician's car",
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        
+        // Información del vehículo en dos columnas
+        _buildVehicleInfoContent(),
+      ],
+    ),
+  ),
+),
                     ] else ...[
                       const SizedBox(height: 12),
                       Row(
@@ -5727,32 +5930,7 @@ Widget _buildIdlePanel() {
                       ),
                     ],
 
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.attach_money,
-                                color: AppColors.primary, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              l10n.estimatedCost, // ✅ CAMBIAR de 'Costo estimado'
-                              style: GoogleFonts.inter(
-                                  fontSize: 14, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '\$${_estimatedPrice.toStringAsFixed(2)}',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
+                    
                   ],
                 ),
               ),
@@ -5763,19 +5941,7 @@ Widget _buildIdlePanel() {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${l10n.technicianArriving} $_estimatedTime ${l10n.minutes}', // ✅ CAMBIAR de 'Técnico llegando en $_estimatedTime minutos'
-
-                      style: GoogleFonts.inter(
-                          fontSize: 12, color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: 0.3,
-                      backgroundColor: AppColors.gray300,
-                      valueColor: AlwaysStoppedAnimation(AppColors.primary),
-                      minHeight: 6,
-                    ),
+                    
                   ],
                 ),
               ] else ...[
@@ -5944,6 +6110,7 @@ Expanded(
       ],
     );
   }
+ 
 
 // ✅ MÉTODO _openRealTimeTracking CORREGIDO:
   void _openRealTimeTracking() async {

@@ -1,4 +1,5 @@
 import 'package:Voltgo_User/data/services/RatingService.dart';
+import 'package:Voltgo_User/l10n/app_localizations.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart'; 
@@ -115,22 +116,23 @@ class _RatingDialogState extends State<RatingDialog>
     }
   }
 
-  String _getRatingText() {
+ String _getRatingText() {
     switch (_rating) {
       case 1:
-        return 'Muy malo';
+        return 'Very bad';
       case 2:
-        return 'Malo';
+        return 'Bad';
       case 3:
         return 'Regular';
       case 4:
-        return 'Bueno';
+        return 'Good';
       case 5:
-        return 'Excelente';
+        return 'Excellent';
       default:
         return '';
     }
   }
+
 
   Color _getRatingColor() {
     switch (_rating) {
@@ -149,6 +151,7 @@ class _RatingDialogState extends State<RatingDialog>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       backgroundColor: Colors.transparent,
@@ -199,7 +202,7 @@ class _RatingDialogState extends State<RatingDialog>
               
               // Título
               Text(
-                '¡Servicio Completado!',
+                l10n.serviceCompleted,
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -208,25 +211,8 @@ class _RatingDialogState extends State<RatingDialog>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              
-              // Precio total
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Total: \$${widget.estimatedPrice.toStringAsFixed(2)}',
-                  style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              
+               
+               
               // Información del técnico
               Container(
                 padding: const EdgeInsets.all(12),
@@ -262,7 +248,7 @@ class _RatingDialogState extends State<RatingDialog>
                             ),
                           ),
                           Text(
-                            'Tu técnico de servicio',
+                            'Your service technician',
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               color: AppColors.textSecondary,
@@ -278,7 +264,7 @@ class _RatingDialogState extends State<RatingDialog>
               
               // Pregunta de experiencia
               Text(
-                '¿Cómo fue tu experiencia?',
+                l10n.howWasExperience,
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -335,7 +321,7 @@ class _RatingDialogState extends State<RatingDialog>
                 maxLines: 3,
                 maxLength: 500,
                 decoration: InputDecoration(
-                  hintText: 'Comparte tu experiencia (opcional)',
+                  hintText: 'Share your experience (optional)',
                   hintStyle: GoogleFonts.inter(
                     color: AppColors.textSecondary,
                     fontSize: 14,
@@ -375,7 +361,7 @@ class _RatingDialogState extends State<RatingDialog>
                         side: BorderSide(color: AppColors.gray300),
                       ),
                       child: Text(
-                        'Omitir',
+                        l10n.skip,
                         style: GoogleFonts.inter(
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w500,
@@ -406,7 +392,7 @@ class _RatingDialogState extends State<RatingDialog>
                               ),
                             )
                           : Text(
-                              'Enviar Calificación',
+                              'Submit Rating',
                               style: GoogleFonts.inter(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,

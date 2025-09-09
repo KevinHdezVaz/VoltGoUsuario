@@ -26,13 +26,47 @@ class AppLocalizations {
             'politicadeprivacidad': 'Privacy Policy',
 
       'arrival': 'Arrival',
- 
+  'chatWith': 'Chat with {name}',
+  'serviceNumber': 'Service #{id}',
+  'loadingMessages': 'Loading messages...',
+  'errorLoadingChat': 'Error loading chat',
+  'tryAgain': 'Try again',
+  'startConversation': 'Start the conversation',
+  'communicateWithTechnician': 'Communicate with your technician to coordinate the service',
+  'communicateWithClient': 'Communicate with the client to coordinate the service',
+  'writeMessage': 'Write a message...',
+  'sending': 'Sending...',
+  'errorSendingMessage': 'Error sending message: {error}',
+  'updateMessages': 'Update messages',
+  'statusPending': 'Client assigned',
+  'statusAccepted': 'Client assigned',
+  'statusEnRoute': 'Technician on the way',
+  'statusOnSite': 'Technician on site',
+  'statusCharging': 'Charging vehicle',
+  'statusCompleted': 'Service completed',
+  'statusCancelled': 'Service cancelled',
       'serviceDetails': 'Service Details',
   'errorLoadingDetails': 'Error loading details',
   'noAdditionalDetails': 'Additional details not available',
   'detailsWillBeAdded': 'Technical service details will be added by the technician during or after the service.',
   'serviceInformation': 'Service Information',
   'date': 'Date',
+  "confirmService": "Confirm Service",
+"reviewDetailsBeforeContinuing": "Review details before continuing",
+"estimatedTime": "Estimated time",
+"distance": "Distance", 
+"availableTechnicians": "Available technicians",
+"priceBreakdown": "Price Breakdown",
+"baseFare": "Base fare",
+"distanceFee": "Distance ({distance} km)",
+"estimatedTimeFee": "Estimated time",
+"total": "Total",
+"finalPriceMayVary": "Final price may vary based on actual service time",
+  'requestFor': 'Request for {price}',
+"cancel": "Cancel",
+"minutes": "min",
+"km": "km",
+
   'serviceId': 'Service ID',
   'serviceTimeline': 'Service Timeline',
   'started': 'Started',
@@ -489,7 +523,7 @@ class AppLocalizations {
       'email': 'Email',
       'enterEmail': 'Enter your email address.',
       'password': 'Password',
-      'enterPassword': 'Efnter your password',
+      'enterPassword': 'Enter your password',
       'signIn': 'Sign In',
       'incorrectUserPassword': 'Incorrect username or password',
       'serverConnectionError': 'Server connection error',
@@ -574,6 +608,26 @@ class AppLocalizations {
       'request': 'Solicitud',
       'status': 'Estado',
       'requested': 'Solicitado',
+       'chatWith': 'Chat con {name}',
+  'serviceNumber': 'Servicio #{id}',
+  'loadingMessages': 'Cargando mensajes...',
+  'errorLoadingChat': 'Error al cargar el chat',
+  'tryAgain': 'Intentar nuevamente',
+  'startConversation': 'Inicia la conversación',
+  'communicateWithTechnician': 'Comunícate con tu técnico para coordinar el servicio',
+  'communicateWithClient': 'Comunícate con el cliente para coordinar el servicio',
+  'writeMessage': 'Escribe un mensaje...',
+  'sending': 'Enviando...',
+  'errorSendingMessage': 'Error al enviar mensaje: {error}',
+  'updateMessages': 'Actualizar mensajes',
+  'statusPending': 'Cliente asignado',
+  'statusAccepted': 'Cliente asignado',
+  'statusEnRoute': 'Técnico en camino',
+  'statusOnSite': 'Técnico en sitio',
+  'statusCharging': 'Cargando vehículo',
+  'statusCompleted': 'Servicio completado',
+  'statusCancelled': 'Servicio cancelado',
+
       'whatToDo': '¿Qué deseas hacer?',
         'orRegisterWithEmail': 'O regístrate con tu email',
 
@@ -935,6 +989,7 @@ class AppLocalizations {
     'contactUs': 'Contacto',
     'questionsContact': 'Si tienes preguntas sobre estos términos, contáctanos en:',
         'updateVehicle': 'Actualizar Vehículo',
+  'requestFor': 'Solicitar por {price}',
 
     // Política de Privacidad - ESPAÑOL
     'privacyPolicy': 'Política de Privacidad',
@@ -1055,6 +1110,21 @@ class AppLocalizations {
       'signUpWithApple': 'Registrarse con Apple',
       'welcomeSuccessfulRegistration': '¡Bienvenido! Registro exitoso.',
       'errorOccurred': 'Ocurrió un error',
+      "confirmService": "Confirmar Servicio",
+"reviewDetailsBeforeContinuing": "Revisa los detalles antes de continuar",
+"estimatedTime": "Tiempo estimado",
+"distance": "Distancia", 
+"availableTechnicians": "Técnicos disponibles",
+"priceBreakdown": "Desglose de Precio",
+"baseFare": "Tarifa base",
+"distanceFee": "Distancia ({distance} km)",
+"estimatedTimeFee": "Tiempo estimado",
+"total": "Total",
+"finalPriceMayVary": "El precio final puede variar según el tiempo real del servicio",
+"requestFor": "Solicitar por",
+"cancel": "Cancelar",
+"minutes": "min",
+"km": "km",
       'alreadyHaveAccount': '¿Ya tienes una cuenta? ',
       'signInHere': 'Inicia sesión.',
       'register': 'Registrar',
@@ -1366,6 +1436,28 @@ String get orRegisterWithEmail => _localizedValues[locale.languageCode]!['orRegi
   String get serviceUpdatedCorrectly =>
       _localizedValues[locale.languageCode]!['serviceUpdatedCorrectly']!;
 
+
+String get confirmService => _localizedValues[locale.languageCode]!['confirmService']!;
+String get reviewDetailsBeforeContinuing => _localizedValues[locale.languageCode]!['reviewDetailsBeforeContinuing']!;
+ String get distance => _localizedValues[locale.languageCode]!['distance']!;
+String get availableTechnicians => _localizedValues[locale.languageCode]!['availableTechnicians']!;
+String get priceBreakdown => _localizedValues[locale.languageCode]!['priceBreakdown']!;
+String get baseFare => _localizedValues[locale.languageCode]!['baseFare']!;
+String get estimatedTimeFee => _localizedValues[locale.languageCode]!['estimatedTimeFee']!;
+ String get finalPriceMayVary => _localizedValues[locale.languageCode]!['finalPriceMayVary']!;
+  String get km => _localizedValues[locale.languageCode]!['km']!;
+
+// Getters con parámetros
+String distanceFee(String distance) {
+  final template = _localizedValues[locale.languageCode]!['distanceFee']!;
+  return template.replaceAll('{distance}', distance);
+}
+
+String requestFor(String price) {
+  final template = _localizedValues[locale.languageCode]!['requestFor']!;
+  return template.replaceAll('{price}', price);
+}
+
 // GETTERS NECESARIOS PARA AppLocalizations:
   String get settings => _localizedValues[locale.languageCode]!['settings']!;
   String get logout => _localizedValues[locale.languageCode]!['logout']!;
@@ -1412,6 +1504,38 @@ String get orRegisterWithEmail => _localizedValues[locale.languageCode]!['orRegi
   String get cancelled => _localizedValues[locale.languageCode]!['cancelled']!;
   String get unknownStatus =>
       _localizedValues[locale.languageCode]!['unknownStatus']!;
+
+
+
+String chatWithName(String name) => 
+  _localizedValues[locale.languageCode]!['chatWith']!.replaceAll('{name}', name);
+
+String serviceNumberId(String id) => 
+  _localizedValues[locale.languageCode]!['serviceNumber']!.replaceAll('{id}', id);
+
+String errorSendingMessageText(String error) => 
+  _localizedValues[locale.languageCode]!['errorSendingMessage']!.replaceAll('{error}', error);
+  
+String get chatWith => _localizedValues[locale.languageCode]!['chatWith']!;
+String get serviceNumber => _localizedValues[locale.languageCode]!['serviceNumber']!;
+String get loadingMessages => _localizedValues[locale.languageCode]!['loadingMessages']!;
+String get errorLoadingChat => _localizedValues[locale.languageCode]!['errorLoadingChat']!;
+String get tryAgain => _localizedValues[locale.languageCode]!['tryAgain']!;
+String get startConversation => _localizedValues[locale.languageCode]!['startConversation']!;
+String get communicateWithTechnician => _localizedValues[locale.languageCode]!['communicateWithTechnician']!;
+String get communicateWithClient => _localizedValues[locale.languageCode]!['communicateWithClient']!;
+String get writeMessage => _localizedValues[locale.languageCode]!['writeMessage']!;
+String get sending => _localizedValues[locale.languageCode]!['sending']!;
+String get errorSendingMessage => _localizedValues[locale.languageCode]!['errorSendingMessage']!;
+String get updateMessages => _localizedValues[locale.languageCode]!['updateMessages']!;
+String get statusPending => _localizedValues[locale.languageCode]!['statusPending']!;
+String get statusAccepted => _localizedValues[locale.languageCode]!['statusAccepted']!;
+String get statusEnRoute => _localizedValues[locale.languageCode]!['statusEnRoute']!;
+String get statusOnSite => _localizedValues[locale.languageCode]!['statusOnSite']!;
+String get statusCharging => _localizedValues[locale.languageCode]!['statusCharging']!;
+String get statusCompleted => _localizedValues[locale.languageCode]!['statusCompleted']!;
+String get statusCancelled => _localizedValues[locale.languageCode]!['statusCancelled']!;
+
 
 // Time-related
   String get fewSecondsAgo =>
@@ -1827,8 +1951,7 @@ String get preparingService => _localizedValues[locale.languageCode]!['preparing
 String get technicianArrived => _localizedValues[locale.languageCode]!['technicianArrived']!; 
 String get serviceStartedMessage => _localizedValues[locale.languageCode]!['serviceStartedMessage']!; 
 String get serviceCancelledMessage => _localizedValues[locale.languageCode]!['serviceCancelledMessage']!;
-String get distance => _localizedValues[locale.languageCode]!['distance']!;
-String get obtainingLocation => _localizedValues[locale.languageCode]!['obtainingLocation']!;
+ String get obtainingLocation => _localizedValues[locale.languageCode]!['obtainingLocation']!;
 String get call => _localizedValues[locale.languageCode]!['call']!; 
 String get yourLocation => _localizedValues[locale.languageCode]!['yourLocation']!;
 String get technicianName => _localizedValues[locale.languageCode]!['technicianName']!; 
