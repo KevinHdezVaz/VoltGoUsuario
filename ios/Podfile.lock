@@ -164,19 +164,55 @@ PODS:
     - nanopb/encode (= 2.30910.0)
   - nanopb/decode (2.30910.0)
   - nanopb/encode (2.30910.0)
-  - onesignal_flutter (3.5.4):
+  - onesignal_flutter (5.3.4):
     - Flutter
-    - OneSignalXCFramework (= 3.12.10)
-  - OneSignalXCFramework (3.12.10):
-    - OneSignalXCFramework/OneSignalCore (= 3.12.10)
-    - OneSignalXCFramework/OneSignalExtension (= 3.12.10)
-    - OneSignalXCFramework/OneSignalOutcomes (= 3.12.10)
-  - OneSignalXCFramework/OneSignalCore (3.12.10)
-  - OneSignalXCFramework/OneSignalExtension (3.12.10):
+    - OneSignalXCFramework (= 5.2.14)
+  - OneSignalXCFramework (5.2.14):
+    - OneSignalXCFramework/OneSignalComplete (= 5.2.14)
+  - OneSignalXCFramework/OneSignal (5.2.14):
+    - OneSignalXCFramework/OneSignalCore
+    - OneSignalXCFramework/OneSignalExtension
+    - OneSignalXCFramework/OneSignalLiveActivities
+    - OneSignalXCFramework/OneSignalNotifications
+    - OneSignalXCFramework/OneSignalOSCore
+    - OneSignalXCFramework/OneSignalOutcomes
+    - OneSignalXCFramework/OneSignalUser
+  - OneSignalXCFramework/OneSignalComplete (5.2.14):
+    - OneSignalXCFramework/OneSignal
+    - OneSignalXCFramework/OneSignalInAppMessages
+    - OneSignalXCFramework/OneSignalLocation
+  - OneSignalXCFramework/OneSignalCore (5.2.14)
+  - OneSignalXCFramework/OneSignalExtension (5.2.14):
     - OneSignalXCFramework/OneSignalCore
     - OneSignalXCFramework/OneSignalOutcomes
-  - OneSignalXCFramework/OneSignalOutcomes (3.12.10):
+  - OneSignalXCFramework/OneSignalInAppMessages (5.2.14):
     - OneSignalXCFramework/OneSignalCore
+    - OneSignalXCFramework/OneSignalNotifications
+    - OneSignalXCFramework/OneSignalOSCore
+    - OneSignalXCFramework/OneSignalOutcomes
+    - OneSignalXCFramework/OneSignalUser
+  - OneSignalXCFramework/OneSignalLiveActivities (5.2.14):
+    - OneSignalXCFramework/OneSignalCore
+    - OneSignalXCFramework/OneSignalOSCore
+    - OneSignalXCFramework/OneSignalUser
+  - OneSignalXCFramework/OneSignalLocation (5.2.14):
+    - OneSignalXCFramework/OneSignalCore
+    - OneSignalXCFramework/OneSignalNotifications
+    - OneSignalXCFramework/OneSignalOSCore
+    - OneSignalXCFramework/OneSignalUser
+  - OneSignalXCFramework/OneSignalNotifications (5.2.14):
+    - OneSignalXCFramework/OneSignalCore
+    - OneSignalXCFramework/OneSignalExtension
+    - OneSignalXCFramework/OneSignalOutcomes
+  - OneSignalXCFramework/OneSignalOSCore (5.2.14):
+    - OneSignalXCFramework/OneSignalCore
+  - OneSignalXCFramework/OneSignalOutcomes (5.2.14):
+    - OneSignalXCFramework/OneSignalCore
+  - OneSignalXCFramework/OneSignalUser (5.2.14):
+    - OneSignalXCFramework/OneSignalCore
+    - OneSignalXCFramework/OneSignalNotifications
+    - OneSignalXCFramework/OneSignalOSCore
+    - OneSignalXCFramework/OneSignalOutcomes
   - open_file_plus (1.0.0):
     - Flutter
   - package_info_plus (0.4.5):
@@ -190,9 +226,9 @@ PODS:
     - Flutter
   - PromisesObjC (2.4.0)
   - RecaptchaInterop (100.0.0)
-  - SDWebImage (5.21.1):
-    - SDWebImage/Core (= 5.21.1)
-  - SDWebImage/Core (5.21.1)
+  - SDWebImage (5.21.2):
+    - SDWebImage/Core (= 5.21.2)
+  - SDWebImage/Core (5.21.2)
   - SDWebImageWebPCoder (0.14.6):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
@@ -203,6 +239,42 @@ PODS:
     - FlutterMacOS
   - smart_auth (0.0.1):
     - Flutter
+  - Stripe (23.27.6):
+    - StripeApplePay (= 23.27.6)
+    - StripeCore (= 23.27.6)
+    - StripePayments (= 23.27.6)
+    - StripePaymentsUI (= 23.27.6)
+    - StripeUICore (= 23.27.6)
+  - stripe_ios (0.0.1):
+    - Flutter
+    - Stripe (~> 23.27.0)
+    - StripeApplePay (~> 23.27.0)
+    - StripeFinancialConnections (~> 23.27.0)
+    - StripePayments (~> 23.27.0)
+    - StripePaymentSheet (~> 23.27.0)
+    - StripePaymentsUI (~> 23.27.0)
+  - StripeApplePay (23.27.6):
+    - StripeCore (= 23.27.6)
+  - StripeCore (23.27.6)
+  - StripeFinancialConnections (23.27.6):
+    - StripeCore (= 23.27.6)
+    - StripeUICore (= 23.27.6)
+  - StripePayments (23.27.6):
+    - StripeCore (= 23.27.6)
+    - StripePayments/Stripe3DS2 (= 23.27.6)
+  - StripePayments/Stripe3DS2 (23.27.6):
+    - StripeCore (= 23.27.6)
+  - StripePaymentSheet (23.27.6):
+    - StripeApplePay (= 23.27.6)
+    - StripeCore (= 23.27.6)
+    - StripePayments (= 23.27.6)
+    - StripePaymentsUI (= 23.27.6)
+  - StripePaymentsUI (23.27.6):
+    - StripeCore (= 23.27.6)
+    - StripePayments (= 23.27.6)
+    - StripeUICore (= 23.27.6)
+  - StripeUICore (23.27.6):
+    - StripeCore (= 23.27.6)
   - url_launcher_ios (0.0.1):
     - Flutter
   - vibration (1.7.5):
@@ -235,6 +307,7 @@ DEPENDENCIES:
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - smart_auth (from `.symlinks/plugins/smart_auth/ios`)
+  - stripe_ios (from `.symlinks/plugins/stripe_ios/ios`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
   - vibration (from `.symlinks/plugins/vibration/ios`)
 
@@ -263,6 +336,14 @@ SPEC REPOS:
     - RecaptchaInterop
     - SDWebImage
     - SDWebImageWebPCoder
+    - Stripe
+    - StripeApplePay
+    - StripeCore
+    - StripeFinancialConnections
+    - StripePayments
+    - StripePaymentSheet
+    - StripePaymentsUI
+    - StripeUICore
 
 EXTERNAL SOURCES:
   audioplayers_darwin:
@@ -311,6 +392,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   smart_auth:
     :path: ".symlinks/plugins/smart_auth/ios"
+  stripe_ios:
+    :path: ".symlinks/plugins/stripe_ios/ios"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
   vibration:
@@ -349,8 +432,8 @@ SPEC CHECKSUMS:
   location: 155caecf9da4f280ab5fe4a55f94ceccfab838f8
   Mantle: c5aa8794a29a022dfbbfc9799af95f477a69b62d
   nanopb: 438bc412db1928dac798aa6fd75726007be04262
-  onesignal_flutter: d4c7ec4b99dc476bae4a9b4c578c089ee8d2f7aa
-  OneSignalXCFramework: e458f7a374192598a1d66418e1b61481c3cdf0e9
+  onesignal_flutter: 3a2b51f9262c851166a882a553d71a8ccec4e29c
+  OneSignalXCFramework: 7112f3e89563e41ebc23fe807788f11985ac541c
   open_file_plus: b0a12f9db69dfdab3b4751761753d2ba229ae6c1
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
@@ -358,11 +441,20 @@ SPEC CHECKSUMS:
   printing: 54ff03f28fe9ba3aa93358afb80a8595a071dd07
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   RecaptchaInterop: 7d1a4a01a6b2cb1610a47ef3f85f0c411434cb21
-  SDWebImage: f29024626962457f3470184232766516dee8dfea
+  SDWebImage: 9f177d83116802728e122410fb25ad88f5c7608a
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   share_plus: de6030e33b4e106470e09322d87cf2a4258d2d1d
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
   smart_auth: 33668081c5f646af84f10492a067d25fdcd16951
+  Stripe: 9fec845645e39f371e6898926d096fd9c2feb5a5
+  stripe_ios: 5accba1ff472f89300e1676c351166f29dc93ced
+  StripeApplePay: 5f017e8dfe259fafbab70137776189deef754bb2
+  StripeCore: 01ec57f0dddfe742054dc6a322f811426c25313d
+  StripeFinancialConnections: 56698cb6274bf89fb8c76b934f6156f368e97765
+  StripePayments: 6adf11faf1b7038e77aa97019410305c6adca79d
+  StripePaymentSheet: 3eaf870c4388e44b0cc37e4c69d00b6957fd8bd7
+  StripePaymentsUI: 59ccddeacad592b09fa67e8d641340820ddb4751
+  StripeUICore: 879bbf5889265db13f52fac8aad7a176ba62481f
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
   vibration: 8e2f50fc35bb736f9eecb7dd9f7047fbb6a6e888
 

@@ -58,6 +58,44 @@ static Future<ServiceRequestModel> createRequest(
 }
 
 
+// En tu ServiceRequestService.dart
+
+static Future<Map<String, dynamic>> cancelOldService(int serviceId) async {
+  try {
+    final token = await TokenStorage.getToken();
+    if (token == null) throw Exception('Token no encontrado');
+
+    final url = Uri.parse('${Constants.baseUrl}/service/request/$serviceId/cancel-old');
+    
+    final headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+
+    print('🗑️ Cancelando servicio antiguo: $serviceId');
+    final response = await http.post(url, headers: headers);
+    
+    print('📡 Respuesta cancelación antigua: ${response.statusCode}');
+    print('📄 Response body: ${response.body}');
+
+    final data = jsonDecode(response.body);
+    
+    if (response.statusCode == 200 && data['success'] == true) {
+      return {
+        'success': true,
+        'message': data['message'],
+        'service': data['service']
+      };
+    } else {
+      throw Exception(data['message'] ?? 'Error cancelando servicio antiguo');
+    }
+  } catch (e) {
+    print('❌ Error cancelando servicio antiguo: $e');
+    throw e;
+  }
+}
+
 
 static Future<Map<String, dynamic>> getServiceEstimation(LatLng location) async {
   final url = Uri.parse('${Constants.baseUrl}/service/estimate');

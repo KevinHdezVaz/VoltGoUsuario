@@ -6,6 +6,7 @@ import 'package:Voltgo_User/ui/login/add_vehicle_screen.dart';
 import 'package:Voltgo_User/utils/ChatNotificationProvider.dart';
 import 'package:Voltgo_User/utils/OneSignalService.dart';
 import 'package:Voltgo_User/utils/bottom_nav.dart';
+import 'package:Voltgo_User/utils/stripe_config.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -87,6 +88,10 @@ void main() async {
     print('StackTrace: $stackTrace');
     // Continuar para no bloquear la app completamente
   }
+
+
+  await StripeConfig.initialize();
+
 
   // ✅ NUEVO: Verificar onboarding
   final prefs = await SharedPreferences.getInstance();

@@ -1,13 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-
+    
+    <!-- Permisos existentes -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
+    <!-- Permiso para notificaciones Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
     <application
         android:label="MyVoltGo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        
+        <!-- OneSignal v5.x configuración -->
+        <meta-data 
+            android:name="onesignal_app_id"
+            android:value="3708fbd6-1d48-48aa-94dc-3fa8cbdcdd16" />
+    
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -19,9 +30,9 @@
             android:windowSoftInputMode="adjustResize">
             
             <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
+                
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -31,14 +42,18 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-
-        <meta-data android:name="com.google.android.geo.API_KEY"
-           android:value="AIzaSyAqL4xwW8mB3pxuhnx7lq8ZwCAhapcE1vA"/>
-
+            
+        <!-- Google Maps API Key -->
+        <meta-data 
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyAqL4xwW8mB3pxuhnx7lq8ZwCAhapcE1vA"/>
+            
+        <!-- Firebase Messaging Icon -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification" />
             
+        <!-- File Provider -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileProvider"
@@ -48,19 +63,18 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/filepaths" />
         </provider>
-
+        
     </application>
-
+    
+    <!-- Queries -->
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="application/pdf" />
         </intent>
-
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
-
 </manifest>

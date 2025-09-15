@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:Voltgo_User/data/logic/dashboard/DashboardLogic.dart';
+import 'package:Voltgo_User/data/models/StripePlan.dart';
 import 'package:Voltgo_User/data/models/User/ServiceRequestModel.dart';
 import 'package:Voltgo_User/data/models/User/user_model.dart';
+import 'package:Voltgo_User/data/models/UserSubscription.dart';
 import 'package:Voltgo_User/data/services/ChatService.dart';
 import 'package:Voltgo_User/data/services/ProfileCompletionService.dart';
 import 'package:Voltgo_User/data/services/ServiceChatScreen.dart';
 import 'package:Voltgo_User/data/services/ServiceRequestService.dart';
+import 'package:Voltgo_User/data/services/StripeService.dart';
+import 'package:Voltgo_User/data/services/SubscriptionService.dart';
 import 'package:Voltgo_User/data/services/UserService.dart';
 import 'package:Voltgo_User/data/services/auth_api_service.dart';
 import 'package:Voltgo_User/l10n/app_localizations.dart';
@@ -14,6 +18,7 @@ import 'package:Voltgo_User/ui/MenuPage/ClientRealTimeTrackingWidget.dart';
 import 'package:Voltgo_User/ui/login/CompleteProfileScreen.dart';
 import 'package:Voltgo_User/utils/ChatNotificationProvider.dart';
 import 'package:Voltgo_User/utils/OneSignalService.dart';
+import 'package:Voltgo_User/utils/PlanSelectionDialog.dart';
 import 'package:Voltgo_User/utils/RatingDialog.dart';
 import 'package:Voltgo_User/utils/TokenStorage.dart';
 import 'package:Voltgo_User/utils/constants.dart';
@@ -27,6 +32,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:animate_do/animate_do.dart';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
@@ -1108,72 +1114,224 @@ Widget _buildChatButtonWithBadge() {
     }
   }
 
-
 Future<void> _checkForActiveServiceOnStartup() async {
+  if (!mounted) return;
+  
   try {
-    print('🔍 Verificando servicios activos al iniciar la app...');
-
-    // Verificar si hay vehículo registrado primero
-    if (!_hasVehicleRegistered) {
-      print('⚠️ Usuario no tiene vehículo registrado');
-      return;
-    }
-
-    // Obtener servicio activo del servidor
+    print('🔍 Verificando servicios activos al iniciar...');
+    
     final activeService = await ServiceRequestService.getActiveService();
 
+    if (!mounted) return;
+
     if (activeService != null) {
-      print('🎯 Servicio activo encontrado: ${activeService.id} - Estado: ${activeService.status}');
-
-      setState(() {
-        _hasActiveService = true;
-        _existingRequest = activeService;
-        _activeRequest = activeService;
-        _lastKnownStatus = activeService.status;
-
-        // ✅ CAMBIO PRINCIPAL: NO CAMBIAR _passengerStatus automáticamente
-        // Solo almacenar la información del servicio, pero mantener la UI en idle
-        // El usuario debe decidir si quiere ver el servicio activo
+      print('🎯 Servicio encontrado: ${activeService.id} - Estado: ${activeService.status}');
+      
+      // Verificar si el servicio es realmente activo
+      final validActiveStates = ['pending', 'accepted', 'en_route', 'on_site', 'charging'];
+      
+      if (!validActiveStates.contains(activeService.status)) {
+        print('⚠️ Servicio no está en estado activo válido: ${activeService.status}');
+        _ensureIdleState();
+        return;
+      }
+      
+      // ✅ CAMBIO PRINCIPAL: Verificar antigüedad y cancelar automáticamente
+      final serviceAge = DateTime.now().difference(activeService.requestedAt);
+      
+      if (serviceAge.inMinutes > 60) { // Si tiene más de 1 hora
+        print('⚠️ Servicio muy antiguo (${serviceAge.inMinutes} minutos), cancelando automáticamente');
         
-        // ✅ SOLO cargar datos del técnico si es necesario para futuras acciones
-        switch (activeService.status) {
-          case 'accepted':
-          case 'en_route':
-          case 'on_site':
-          case 'charging':
-            _loadTechnicianData(activeService);
-            if (activeService.status == 'charging') {
-              _hasServiceStarted = true;
-              // No cargar progreso hasta que el usuario abra el panel
-            }
-            break;
+        try {
+          // ✅ USAR TU MÉTODO cancelOldService
+          final result = await ServiceRequestService.cancelOldService(activeService.id);
           
-          case 'completed':
-            // Este es el único caso donde sí debemos mostrar algo al usuario
-            _passengerStatus = PassengerStatus.completed;
-            _showRatingDialog();
-            break;
-            
-          default:
-            // Para 'pending' y otros estados, NO cambiar _passengerStatus
-            // Se mantiene en idle hasta que el usuario presione el botón
-            break;
+          if (result['success'] == true) {
+            print('✅ Servicio antiguo cancelado automáticamente');
+            _showSuccessMessage('Servicio antiguo cancelado automáticamente');
+          }
+        } catch (e) {
+          print('❌ Error cancelando servicio antiguo: $e');
+          // Si no se puede cancelar, mostrar el diálogo para que el usuario decida
+          if (mounted) {
+            _showOldServiceDialog(activeService);
+          }
+          return;
         }
-      });
+        
+        _ensureIdleState();
+        return;
+      }
 
-      // ✅ INICIAR MONITOREO EN BACKGROUND sin afectar la UI
+      // Si el servicio es reciente (menos de 1 hora), mostrarlo normalmente
+      if (mounted) {
+        setState(() {
+          _hasActiveService = true;
+          _existingRequest = activeService;
+          _activeRequest = activeService;
+          _lastKnownStatus = activeService.status;
+          
+          // Determinar estado de UI según el estado del servicio
+          switch (activeService.status) {
+            case 'pending':
+              _passengerStatus = PassengerStatus.searching;
+              break;
+            case 'accepted':
+            case 'en_route':
+              _passengerStatus = PassengerStatus.driverAssigned;
+              break;
+            case 'on_site':
+            case 'charging':
+              _passengerStatus = PassengerStatus.onTrip;
+              break;
+          }
+        });
+      }
+
+      // Cargar datos del técnico si hay uno asignado
+      if (activeService.technician != null && mounted) {
+        _loadTechnicianData(activeService);
+      }
+
+      // Mostrar panel deslizante
+      if (mounted) {
+        _slideController.forward();
+      }
+
+      // Iniciar monitoreo
       _startStatusChecker();
+      
+      // Cargar progreso si está en charging
+      if (activeService.status == 'charging') {
+        await _loadServiceProgressFromBackend();
+      }
 
-      print('✅ Servicio activo detectado pero UI permanece en idle');
+      print('✅ Servicio activo válido detectado');
     } else {
-      print('ℹ️ No hay servicios activos al iniciar');
+      print('ℹ️ No hay servicios activos');
       _ensureIdleState();
     }
   } catch (e) {
-    print('❌ Error verificando servicios activos al iniciar: $e');
+    print('❌ Error verificando servicios activos: $e');
     _ensureIdleState();
   }
 }
+
+// En PassengerMapScreen.dart
+
+void _showOldServiceDialog(ServiceRequestModel oldService) {
+  final l10n = AppLocalizations.of(context);
+  final serviceAge = DateTime.now().difference(oldService.requestedAt);
+  
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.warning_amber, color: Colors.orange, size: 30),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Text('Servicio Antiguo Detectado')),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Se encontró un servicio de hace ${serviceAge.inHours} horas.',
+            style: GoogleFonts.inter(fontSize: 16),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Detalles del servicio:',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text('ID: ${oldService.id}'),
+                Text('Estado: ${_getServiceStatusText(oldService.status)}'),
+                Text('Solicitado: ${_getTimeAgoText(oldService.requestedAt)}'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Los servicios antiguos pueden cancelarse sin costo para limpiar el sistema.',
+            style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+      actions: [
+        
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.pop(context);
+            await _cancelOldServiceAndRefresh(oldService.id);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: Text(
+            'Cancelar Servicio Antiguo',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// Método corregido
+Future<void> _cancelOldServiceAndRefresh(int serviceId) async {
+  if (!mounted) return; // Verificar antes de iniciar
+  
+  setState(() => _isLoading = true);
+  
+  try {
+    final result = await ServiceRequestService.cancelOldService(serviceId);
+    
+    if (!mounted) return; // Verificar después de la operación async
+    
+    if (result['success'] == true) {
+      _showSuccessMessage('Servicio antiguo cancelado exitosamente');
+      
+      // Limpiar estado y verificar nuevamente
+      _resetToIdle();
+      await Future.delayed(Duration(seconds: 2));
+      
+      if (!mounted) return; // Verificar antes de la siguiente operación async
+      
+      await _checkForActiveServiceOnStartup();
+    }
+  } catch (e) {
+    if (!mounted) return; // Verificar antes de mostrar error
+    
+    _showErrorMessage('Error cancelando servicio antiguo: $e');
+  } finally {
+    if (mounted) { // Solo setState si el widget sigue montado
+      setState(() => _isLoading = false);
+    }
+  }
+}
+ 
 
 // 2. ✅ NUEVO: Verificación silenciosa de servicios activos
   Future<void> _checkForActiveServiceSilently() async {
@@ -1225,21 +1383,23 @@ Future<void> _checkForActiveServiceOnStartup() async {
   }
 
   void _ensureIdleState() {
-    setState(() {
-      _hasActiveService = false;
-      _existingRequest = null;
-      _activeRequest = null;
-      _passengerStatus = PassengerStatus.idle;
+  if (!mounted) return; // Verificar antes de setState
+  
+  setState(() {
+    _hasActiveService = false;
+    _existingRequest = null;
+    _activeRequest = null;
+    _passengerStatus = PassengerStatus.idle;
 
-      // Reiniciar variables de UI
-      _estimatedPrice = 0.0;
-      _estimatedTime = 0;
-      _driverName = '';
-      _driverRating = '5.0';
-      _vehicleInfo = '';
-      _connectorType = '';
-    });
-  }
+    // Reiniciar variables de UI
+    _estimatedPrice = 0.0;
+    _estimatedTime = 0;
+    _driverName = '';
+    _driverRating = '5.0';
+    _vehicleInfo = '';
+    _connectorType = '';
+  });
+}
 
 // ✅ NUEVO: Método para verificar servicios activos
   Future<void> _checkForActiveService() async {
@@ -2376,99 +2536,106 @@ bool _isUserProfileComplete(UserModel user) {
 
  
 
-
-Future<void> _requestService() async {
-  final l10n = AppLocalizations.of(context);
-
-  print('🚀 _requestService called');
-
-  // ✅ VERIFICACIÓN: Si hay servicio activo, mostrar el panel correspondiente
-  if (_hasActiveService && _existingRequest != null) {
-    print('ℹ️ Hay un servicio activo, determinando qué mostrar...');
+Future<void> _showPlanSelectionDialog() async {
+  try {
+    final plans = await StripeService.listPlans();
     
-    // ✅ AQUÍ SÍ cambiamos el estado de la UI porque el usuario solicitó verlo
-    setState(() {
-      switch (_existingRequest!.status) {
-        case 'pending':
-          _passengerStatus = PassengerStatus.searching;
-          _startSearchingAnimation();
-          break;
-        case 'accepted':
-        case 'en_route':
-          _passengerStatus = PassengerStatus.driverAssigned;
-          _updateCancellationTimeInfo().then((_) {
-            if (_canStillCancel && _cancellationTimeRemaining > 0) {
-              _startCancellationTimer();
-            }
-          });
-          break;
-        case 'on_site':
-        case 'charging':
-          _passengerStatus = PassengerStatus.onTrip;
-          if (_existingRequest!.status == 'charging') {
-            _loadServiceProgressFromBackend();
-          }
-          break;
-        case 'completed':
-          _passengerStatus = PassengerStatus.completed;
-          _showRatingDialog();
-          return; // No abrir panel, solo mostrar diálogo
-        default:
-          _showActiveServiceDialog();
-          return;
-      }
-    });
+   final selectedPlan = await showDialog<StripePlan>(
+  context: context,
+  barrierDismissible: false, // No permitir cerrar tocando afuera
+  builder: (context) => ImprovedPlanSelectionDialog(plans: plans), // ✅ Nueva versión mejorada
+);
+    if (selectedPlan != null) {
+      await _purchasePlan(selectedPlan);
+    }
+  } catch (e) {
+    _showErrorMessage('Error al cargar planes: $e');
+  }
+}
+
+
+Future<void> _purchasePlan(StripePlan plan) async {
+  try {
+    setState(() => _isLoading = true);
     
-    // ✅ AHORA SÍ abrir el panel porque el usuario lo solicitó
-    _slideController.forward();
+    // ✅ USAR StripeService en lugar de SubscriptionService
+    final success = await StripeService.purchaseSubscription(priceId: plan.priceId);
+    
+    if (success) {
+      _showSuccessMessage('¡Plan adquirido exitosamente!');
+      await Future.delayed(Duration(seconds: 2));
+      await _proceedWithServiceRequest();
+    } else {
+      _showErrorMessage('Error al procesar el pago');
+    }
+    
+  } catch (e) {
+    _showErrorMessage('Error al comprar plan: $e');
+  } finally {
+    setState(() => _isLoading = false);
+  }
+}
+
+// Método existente pero renombrado para claridad
+Future<void> _proceedWithServiceRequest() async {
+  // Tu lógica existente para solicitar el servicio después de la verificación
+  HapticFeedback.mediumImpact();
+  final position = await _logic.getCurrentUserPosition();
+  if (position == null) {
+    _showErrorMessage('No se pudo obtener tu ubicación');
     return;
   }
 
-  // ✅ RESTO DEL CÓDIGO ORIGINAL para crear nuevo servicio...
-  // (Verificaciones de vehículo, ubicación, etc.)
+  final location = LatLng(position.latitude!, position.longitude!);
   
+  // Continuar con el flujo normal de solicitud...
+  setState(() => _isLoading = true);
+
+  try {
+    final estimation = await ServiceRequestService.getServiceEstimation(location);
+    setState(() => _isLoading = false);
+
+    await _createConfirmedServiceRequest(location, estimation, ''); // Sin price_id porque ya pagó
+  } catch (e) {
+    setState(() => _isLoading = false);
+    _showErrorMessage('Error al solicitar servicio: $e');
+  }
+}
+
+Future<void> _requestService() async {
+  final l10n = AppLocalizations.of(context);
+  print('🚀 _requestService called - SOLO para crear nuevo servicio');
+
+  // =========================================================================
+  // VERIFICACIONES PARA NUEVO SERVICIO
+  // =========================================================================
+  
+  // Verificar vehículo registrado
   if (!_hasVehicleRegistered) {
-    print('⚠️ Usuario no tiene vehículo registrado, verificando en servidor...');
+    print('⚠️ Usuario no tiene vehículo registrado');
     try {
       final hasVehicle = await UserService.hasRegisteredVehicle();
       if (!hasVehicle) {
-        print('❌ Confirmado: No tiene vehículo registrado');
         _navigateToVehicleRegistration();
         return;
       }
       setState(() => _hasVehicleRegistered = true);
-      print('✅ Vehículo verificado, continuando con solicitud...');
     } catch (e) {
-      print('❌ Error verificando vehículo: $e');
       _showErrorMessage('Error al verificar tu vehículo registrado');
       return;
     }
   }
 
-  // ✅ VERIFICACIÓN: Consultar servidor antes de crear nuevo servicio
-  try {
-    final serverActiveService = await ServiceRequestService.getActiveService();
-    if (serverActiveService != null) {
-      print('ℹ️ Servicio activo encontrado en servidor durante solicitud');
-      setState(() {
-        _hasActiveService = true;
-        _existingRequest = serverActiveService;
-        _activeRequest = serverActiveService;
-      });
-      _showActiveServiceDialog();
-      return;
-    }
-  } catch (e) {
-    print('⚠️ Error verificando servicios activos antes de crear: $e');
-  }
-
-  // ✅ VERIFICACIÓN: Estado de la UI
+  // Verificar que UI esté en idle
   if (_passengerStatus != PassengerStatus.idle) {
-    print('ℹ️ Estado no es idle: $_passengerStatus');
+    print('⚠️ UI no está en idle: $_passengerStatus');
     return;
   }
 
-  // ✅ OBTENER UBICACIÓN y continuar con flujo normal...
+  // =========================================================================
+  // CREAR NUEVO SERVICIO
+  // =========================================================================
+  
   HapticFeedback.mediumImpact();
   final position = await _logic.getCurrentUserPosition();
   if (position == null) {
@@ -2477,49 +2644,489 @@ Future<void> _requestService() async {
   }
 
   final location = LatLng(position.latitude!, position.longitude!);
-  print('🚀 Obteniendo estimación para ubicación: $location');
-
   setState(() => _isLoading = true);
 
   try {
-    print('📊 Solicitando estimación al servidor...');
+    // Obtener estimación (verifica técnicos disponibles)
     final estimation = await ServiceRequestService.getServiceEstimation(location);
     
+    // Verificar suscripción
+    UserSubscription? currentSubscription;
+    try {
+      currentSubscription = await SubscriptionService.getCurrentSubscription();
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showErrorMessage('Error al verificar tu plan de servicio: $e');
+      return;
+    }
+
+    // Si no tiene plan activo, mostrar opciones
+    if (currentSubscription == null || !currentSubscription.isActive) {
+      setState(() => _isLoading = false);
+      await _showSubscriptionRequiredDialog();
+      return;
+    }
+
+    // Verificar servicios restantes si es plan único
+    if (currentSubscription.planType == 'one_time' && 
+        (currentSubscription.remainingServices ?? 0) <= 0) {
+      setState(() => _isLoading = false);
+      await _showSubscriptionExpiredDialog(currentSubscription);
+      return;
+    }
+
     setState(() => _isLoading = false);
 
-    print('💰 Mostrando diálogo de confirmación de precio...');
-    final confirmed = await _showPriceConfirmationDialog(estimation);
+    // Mostrar confirmación
+    final confirmed = await _showServiceConfirmationDialog(
+      estimation: estimation,
+      userPlan: currentSubscription,
+    );
 
     if (confirmed == true) {
-      print('✅ Usuario confirmó el servicio, procediendo a crear solicitud...');
-      await _createConfirmedServiceRequest(location, estimation);
-    } else {
-      print('❌ Usuario canceló la confirmación del servicio');
+      await _createConfirmedServiceRequest(location, estimation, currentSubscription.subscriptionId ?? '');
     }
 
   } catch (e) {
     setState(() => _isLoading = false);
     print('❌ Error en _requestService: $e');
     
-    String errorMessage = l10n.errorRequestingService;
-    
     if (e.toString().contains('No hay técnicos disponibles')) {
-      errorMessage = l10n.noTechniciansAvailable;
+      _showNoTechniciansAvailableDialog();
     } else if (e.toString().contains('vehicle not registered')) {
-      errorMessage = l10n.needToRegisterVehicle;
       setState(() => _hasVehicleRegistered = false);
       _navigateToVehicleRegistration();
+    } else {
+      _showErrorMessage('Error al solicitar servicio: $e');
+    }
+  }
+}// =========================================================================
+// MÉTODO NUEVO: Para mostrar servicio activo existente
+// =========================================================================
+void _showExistingActiveService(ServiceRequestModel service) {
+  print('👁️ Mostrando servicio activo: ${service.id} - ${service.status}');
+  
+  setState(() {
+    _activeRequest = service;
+    _existingRequest = service;
+    _lastKnownStatus = service.status;
+    
+    // Determinar estado de UI según el estado del servicio
+    switch (service.status) {
+      case 'pending':
+        _passengerStatus = PassengerStatus.searching;
+        _startSearchingAnimation();
+        break;
+        
+      case 'accepted':
+      case 'en_route':
+        _passengerStatus = PassengerStatus.driverAssigned;
+        _loadTechnicianData(service);
+        _updateCancellationTimeInfo().then((_) {
+          if (_canStillCancel && _cancellationTimeRemaining > 0) {
+            _startCancellationTimer();
+          }
+        });
+        break;
+        
+      case 'on_site':
+      case 'charging':
+        _passengerStatus = PassengerStatus.onTrip;
+        _loadTechnicianData(service);
+        if (service.status == 'charging') {
+          _loadServiceProgressFromBackend();
+        }
+        break;
+        
+      case 'completed':
+        _passengerStatus = PassengerStatus.completed;
+        _showRatingDialog();
+        return; // No mostrar panel si ya está completado
+    }
+  });
+  
+  // Mostrar el panel y empezar monitoreo
+  _slideController.forward();
+  _startStatusChecker();
+  
+  print('✅ Servicio activo mostrado correctamente');
+}
+
+
+
+// ✅ NUEVO: Diálogo específico cuando no hay técnicos
+Future<void> _showNoTechniciansAvailableDialog() async {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Column(
+        children: [
+          Icon(Icons.person_off, color: Colors.orange, size: 40),
+          SizedBox(height: 8),
+          Text('No Hay Técnicos Disponibles'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'No hay técnicos disponibles en tu área en este momento.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(fontSize: 16),
+          ),
+          SizedBox(height: 16),
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.schedule, color: Colors.blue, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Sugerencias:',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '• Intenta nuevamente en unos minutos\n'
+                  '• Los técnicos suelen estar más disponibles fuera de horas pico\n'
+                  '• Considera solicitar el servicio más tarde',
+                  style: GoogleFonts.inter(fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text('Entendido'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            // Reintentarlo después de un momento
+            Future.delayed(Duration(seconds: 2), () {
+              _requestService();
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: Text('Reintentar', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+}
+
+
+// ✅ NUEVO: Diálogo cuando no tiene suscripción
+Future<void> _showSubscriptionRequiredDialog() async {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Column(
+        children: [
+          Icon(Icons.card_membership, color: AppColors.warning, size: 40),
+          SizedBox(height: 8),
+          Text('Plan Requerido'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Para usar el servicio de carga, necesitas tener un plan activo.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(fontSize: 16),
+          ),
+          SizedBox(height: 16),
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '• Planes mensuales con servicios ilimitados\n'
+              '• Planes únicos para uso ocasional\n'
+              '• Respuesta garantizada en 60 minutos',
+              style: GoogleFonts.inter(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.of(context).pop();
+            await _showPlanPurchaseDialog();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: Text('Ver Planes', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+}
+
+// ✅ NUEVO: Diálogo para comprar planes
+Future<void> _showPlanPurchaseDialog() async {
+  try {
+    setState(() => _isLoading = true);
+    final plans = await StripeService.listPlans();
+    setState(() => _isLoading = false);
+
+    if (plans.isEmpty) {
+      _showErrorMessage('No hay planes disponibles en este momento');
       return;
     }
 
-    _showErrorMessage(errorMessage);
+  final selectedPlan = await showDialog<StripePlan>(
+  context: context,
+  barrierDismissible: false, // No permitir cerrar tocando afuera
+  builder: (context) => ImprovedPlanSelectionDialog(plans: plans), // ✅ Nueva versión mejorada
+);
+
+    if (selectedPlan != null) {
+      await _purchaseSelectedPlan(selectedPlan);
+    }
+  } catch (e) {
+    setState(() => _isLoading = false);
+    _showErrorMessage('Error al cargar planes: $e');
   }
 }
-// ✅ NUEVO: Método para crear solicitud confirmada
-Future<void> _createConfirmedServiceRequest(
-  LatLng location, 
-  Map<String, dynamic> estimation
-) async {
+
+// ✅ CORREGIDO: Usar StripeService en lugar de SubscriptionService
+Future<void> _purchaseSelectedPlan(StripePlan plan) async {
+  try {
+    setState(() => _isLoading = true);
+    print('🔄 Iniciando compra del plan: ${plan.priceId}');
+    
+    // ✅ USAR StripeService.purchaseSubscription en lugar de SubscriptionService
+    final success = await StripeService.purchaseSubscription(priceId: plan.priceId);
+    
+    if (success) {
+      _showSuccessMessage('¡Plan adquirido exitosamente!');
+      // Esperar un momento para que se actualice en el servidor
+      await Future.delayed(Duration(seconds: 2));
+      // Continuar con el servicio
+      await _requestService();
+    } else {
+      _showErrorMessage('Error al procesar el pago');
+    }
+    
+  } catch (e) {
+    print('❌ Error en _purchaseSelectedPlan: $e');
+    if (e.toString().contains('cancelada por el usuario') || 
+        e.toString().contains('Canceled')) {
+      _showMessage('Pago cancelado por el usuario', AppColors.warning, Icons.info);
+    } else {
+      _showErrorMessage('Error al comprar plan: $e');
+    }
+  } finally {
+    setState(() => _isLoading = false);
+  }
+}
+
+// ✅ NUEVO: Diálogo de confirmación simple del servicio
+Future<bool?> _showServiceConfirmationDialog({
+  required Map<String, dynamic> estimation,
+  required UserSubscription userPlan,
+}) async {
+  final estimatedTime = int.parse(estimation['estimated_time_minutes'].toString());
+  final distance = double.parse(estimation['distance_km'].toString());
+  
+  return showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.electric_bolt, color: AppColors.primary),
+          ),
+          SizedBox(width: 12),
+          Text('Confirmar Servicio'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Información del plan activo
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Plan Activo: ${userPlan.planName}',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                      if (userPlan.planType == 'one_time' && userPlan.remainingServices != null)
+                        Text(
+                          'Servicios restantes: ${userPlan.remainingServices}',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.green.shade600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          SizedBox(height: 16),
+          
+          // Detalles del servicio
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Tiempo estimado:', style: GoogleFonts.inter()),
+                    Text('$estimatedTime min', 
+                         style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Distancia:', style: GoogleFonts.inter()),
+                    Text('${distance.toStringAsFixed(1)} km', 
+                         style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: Text('Solicitar Servicio', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+}
+
+// ✅ NUEVO: Diálogo cuando el plan expiró/se agotó
+Future<void> _showSubscriptionExpiredDialog(UserSubscription expiredPlan) async {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Column(
+        children: [
+          Icon(Icons.access_time, color: Colors.orange, size: 40),
+          SizedBox(height: 8),
+          Text('Plan Agotado'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            expiredPlan.planType == 'one_time'
+                ? 'Has agotado todos los servicios de tu plan único.'
+                : 'Tu plan mensual ha expirado.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(fontSize: 16),
+          ),
+          SizedBox(height: 16),
+          Text(
+            '¿Te gustaría adquirir un nuevo plan para continuar?',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text('Más Tarde'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.of(context).pop();
+            await _showPlanPurchaseDialog();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: Text('Ver Planes', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _createConfirmedServiceRequest(LatLng location, Map<String, dynamic> estimation, String stripePriceId) async {
+
   print('🔧 Iniciando creación de solicitud confirmada...');
 
   // ✅ INICIAR PROCESO DE BÚSQUEDA EN LA UI
@@ -2614,314 +3221,272 @@ Future<void> _createConfirmedServiceRequest(
   }
 }
  
+ Future<StripePlan?> showPlanSelectionDialog({
+  required BuildContext context,
+  required List<StripePlan> plans, // Recibe la lista de planes
+  required int estimatedTime,
+  required double distance,
+}) async {
 
-Future<bool?> _showPriceConfirmationDialog(Map<String, dynamic> estimation) async {
-  final baseCost = double.parse(estimation['base_cost'].toString());
-  final distanceCost = double.parse(estimation['distance_cost']?.toString() ?? '0');
-  final timeCost = double.parse(estimation['time_cost']?.toString() ?? '0');
-  final totalCost = double.parse(estimation['total_estimated_cost'].toString());
-  final estimatedTime = int.parse(estimation['estimated_time_minutes'].toString());
-  final distance = double.parse(estimation['distance_km'].toString());
-  final availableTechnicians = int.parse(estimation['available_technicians']?.toString() ?? '0');
-
-  // Obtener localizaciones
+  // Formateador de moneda para mostrar los precios correctamente
+  final currencyFormatter = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
   final localizations = AppLocalizations.of(context);
 
-  return showModalBottomSheet<bool>(
+  // Verificamos que la lista de planes no esté vacía
+  if (plans.isEmpty) {
+    // Aquí podrías mostrar un error o simplemente no abrir el diálogo.
+    print("Error: La lista de planes está vacía.");
+    return null;
+  }
+
+  return showModalBottomSheet<StripePlan>(
     context: context,
     isScrollControlled: true,
-    isDismissible: true,
-    enableDrag: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      builder: (context, scrollController) => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            // Handle para indicar que se puede deslizar
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
+    builder: (context) {
+      // Usamos StatefulBuilder para manejar el estado de la selección dentro del diálogo
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          // Inicializamos el plan seleccionado con el primero de la lista
+          StripePlan selectedPlan = plans.first;
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.75,
+            minChildSize: 0.5,
+            maxChildSize: 0.95,
+            builder: (_, scrollController) => Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-            ),
-            
-            // Contenido scrollable
-            Expanded(
-              child: ListView(
-                controller: scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
                 children: [
-                  // Header
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(Icons.electric_bolt, color: AppColors.primary, size: 28),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  // Handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  
+                  // Contenido
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      children: [
+                        // Header (sin cambios)
+                        Row(
                           children: [
-                            Text(
-                              localizations.confirmService,
-                              style: GoogleFonts.inter(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                              child: const Icon(Icons.electric_bolt, color: AppColors.primary, size: 28),
                             ),
-                            Text(
-                              localizations.reviewDetailsBeforeContinuing,
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                color: AppColors.textSecondary,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    localizations.confirmService,
+                                    style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                  ),
+                                  Text(
+                                    localizations.reviewDetailsBeforeContinuing,
+                                    style: GoogleFonts.inter(fontSize: 14, color: AppColors.textSecondary),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
-                  // Información del servicio
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.gray300),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildEstimationRow(
-                          localizations.estimatedTime, 
-                          '$estimatedTime ${localizations.minutes}', 
-                          Icons.access_time
+                        // Información del viaje (sin cambios)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.gray300),
+                          ),
+                          child: Column(
+                            children: [
+                              _buildEstimationRow(localizations.estimatedTime, '$estimatedTime ${localizations.minutes}', Icons.access_time),
+                              const Divider(height: 20),
+                              _buildEstimationRow(localizations.distance, '${distance.toStringAsFixed(1)} ${localizations.km}', Icons.near_me),
+                            ],
+                          ),
                         ),
-                        const Divider(height: 20),
-                        _buildEstimationRow(
-                          localizations.distance, 
-                          '${distance.toStringAsFixed(1)} ${localizations.km}', 
-                          Icons.near_me
+                        const SizedBox(height: 24),
+
+                        // --- NUEVO: Selector de Planes ---
+                        Text(
+                         "Selecciona un Plan de Servicio",
+                          style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
-                        const Divider(height: 20),
-                        _buildEstimationRow(
-                          localizations.availableTechnicians, 
-                          '$availableTechnicians', 
-                          Icons.people
+                        const SizedBox(height: 12),
+                        
+                        // Generamos la lista de planes dinámicamente
+                        Column(
+                          children: plans.map((plan) {
+                            final isSelected = plan.priceId == selectedPlan.priceId;
+                            return _buildPlanTile(
+                              plan: plan,
+                              isSelected: isSelected,
+                              formatter: currencyFormatter,
+                              onTap: () {
+                                // Al tocar un plan, actualizamos el estado para reflejar la selección
+                                setState(() {
+                                  selectedPlan = plan;
+                                });
+                              },
+                            );
+                          }).toList(),
                         ),
+                        // --- FIN DEL Selector de Planes ---
+                        
+                        const SizedBox(height: 16),
+                        
+                        // Nota informativa (sin cambios)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  localizations.finalPriceMayVary,
+                                  style: GoogleFonts.inter(fontSize: 13, color: Colors.blue.shade700),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
                       ],
                     ),
                   ),
                   
-                  const SizedBox(height: 20),
-                  
-                  // Desglose de precios
+                  // Botones Fijos (actualizados para usar el plan seleccionado)
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary.withOpacity(0.05),
-                          Colors.white,
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                      color: Colors.white,
+                      border: Border(top: BorderSide(color: AppColors.gray300, width: 1)),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.receipt_long, color: AppColors.primary, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              localizations.priceBreakdown,
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        _buildPriceRow(localizations.baseFare, baseCost),
-                        const SizedBox(height: 8),
-                        _buildPriceRow(
-                          localizations.distanceFee(distance.toStringAsFixed(1)), 
-                          distanceCost
-                        ),
-                        const SizedBox(height: 8),
-                        _buildPriceRow(localizations.estimatedTimeFee, timeCost),
-                        
-                        const SizedBox(height: 16),
-                        Container(
-                          height: 1,
-                          color: AppColors.gray300,
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Total prominente
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              localizations.total,
-                              style: GoogleFonts.inter(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(8),
+                    child: SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: ElevatedButton(
+                              // Al presionar, devolvemos el plan que está seleccionado
+                              onPressed: () => Navigator.of(context).pop(selectedPlan),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                               child: Text(
-                                '\$${totalCost.toStringAsFixed(2)}',
-                                style: GoogleFonts.inter(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
+                                // El texto del botón ahora muestra el precio del plan seleccionado
+                                localizations.requestFor(currencyFormatter.format(selectedPlan.amount)),
+                                style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Nota informativa
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.blue, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            localizations.finalPriceMayVary,
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: Colors.blue.shade700,
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            // Al cancelar, devolvemos null
+                            onPressed: () => Navigator.of(context).pop(null),
+                            child: Text(
+                              localizations.cancel,
+                              style: GoogleFonts.inter(fontSize: 16, color: AppColors.textSecondary),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                  
-                  const SizedBox(height: 32),
                 ],
               ),
             ),
-            
-            // Botones fijos en la parte inferior
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: AppColors.gray300, width: 1),
-                ),
-              ),
-              child: SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Botón principal
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.electric_bolt, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              localizations.requestFor('\$${totalCost.toStringAsFixed(2)}'),
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 12),
-                    
-                    // Botón cancelar discreto
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: Text(
-                        localizations.cancel,
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          );
+        },
+      );
+    },
+  );
+}
+
+
+
+
+/// Widget para construir cada opción de plan (estilo Uber)
+Widget _buildPlanTile({
+  required StripePlan plan,
+  required bool isSelected,
+  required NumberFormat formatter,
+  required VoidCallback onTap,
+}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isSelected ? AppColors.primary.withOpacity(0.1) : AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected ? AppColors.primary : AppColors.gray300,
+          width: isSelected ? 2.0 : 1.0,
         ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.electric_car, color: AppColors.primary, size: 36),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  plan.productName,
+                  style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                if (plan.productDescription != null)
+                  Text(
+                    plan.productDescription!,
+                    style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            formatter.format(plan.amount),
+            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          ),
+        ],
       ),
     ),
   );
 }
+
 
 Widget _buildEstimationRow(String label, String value, IconData icon) {
   return Row(
@@ -2997,16 +3562,17 @@ Widget _buildPriceRow(String label, double amount) {
 
 // ✅ PASO 5: Mejorar _resetToIdle para limpiar completamente el estado
 
-  void _resetToIdle() {
-    print('🔄 Resetting to idle state and restarting app');
+   // En _resetToIdle()
+void _resetToIdle() {
+  print('🔄 Resetting to idle state and restarting app');
 
-    // Cancelar todos los timers
-    _cancellationTimeTimer?.cancel();
-    _statusCheckTimer?.cancel();
-    _searchingAnimationTimer?.cancel();
-    _serviceProgressTimer?.cancel();
+  // Cancelar todos los timers
+  _cancellationTimeTimer?.cancel();
+  _statusCheckTimer?.cancel();
+  _searchingAnimationTimer?.cancel();
+  _serviceProgressTimer?.cancel();
 
-    // Limpiar estado completamente
+  if (mounted) { // Solo setState si está montado
     setState(() {
       _passengerStatus = PassengerStatus.idle;
       _activeRequest = null;
@@ -3030,19 +3596,24 @@ Widget _buildPriceRow(String label, double amount) {
       _chargeTimeMinutes = 0;
       _serviceNotes = '';
     });
-
-    // Limpiar recursos del mapa
-    _logic.removeDriverMarker('driver_1');
-    _slideController.reverse();
-
-    // Navegar al BottomNavBar para reiniciar completamente
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      '/dashboard', // O la ruta de tu BottomNavBar
-      (route) => false, // Esto elimina todas las rutas anteriores
-    );
-
-    print('✅ Estado completamente limpiado y app reiniciada');
   }
+
+  // Limpiar recursos del mapa
+  _logic.removeDriverMarker('driver_1');
+  if (mounted) {
+    _slideController.reverse();
+  }
+
+  // Solo navegar si el widget sigue montado
+  if (mounted) {
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/dashboard',
+      (route) => false,
+    );
+  }
+
+  print('✅ Estado completamente limpiado y app reiniciada');
+}
 // ✅ PASO 5: Método auxiliar para mostrar errores (si no lo tienes)
 
 // ✅ PASO 5: Método auxiliar para mostrar errores (si no lo tienes)
@@ -3148,90 +3719,142 @@ void _cancelService() {
     );
   }
 
-  void _startStatusChecker() {
-    _statusCheckTimer?.cancel();
-    _statusCheckTimer =
-        Timer.periodic(const Duration(seconds: 3), (timer) async {
-      if (_activeRequest == null) {
+void _startStatusChecker() {
+  _statusCheckTimer?.cancel();
+  
+  _statusCheckTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    if (!mounted) {
+      timer.cancel();
+      return;
+    }
+    
+    if (_activeRequest == null) {
+      timer.cancel();
+      return;
+    }
+
+    try {
+      final updatedRequest = await ServiceRequestService.getRequestStatus(_activeRequest!.id);
+
+      if (!mounted) {
         timer.cancel();
         return;
       }
 
-      try {
-        final updatedRequest =
-            await ServiceRequestService.getRequestStatus(_activeRequest!.id);
+      // Debug para rastrear cambios
+      print('🔍 Status check - Actual: ${updatedRequest.status}, Último conocido: $_lastKnownStatus, UI: $_passengerStatus');
 
-        // Detectar cancelación automática por expiración
-        if (updatedRequest.status == 'cancelled' &&
-            _lastKnownStatus != 'cancelled') {
-          print('⚠️ Servicio cancelado - verificando motivo...');
+      // ✅ DETECTAR Y MANEJAR CHARGING INMEDIATAMENTE
+      if (updatedRequest.status == 'charging' && _lastKnownStatus != 'charging') {
+        print('🔋 DETECTADO CAMBIO A CHARGING - actualizando UI inmediatamente');
+        
+        // Actualizar estado inmediatamente
+        setState(() {
+          _activeRequest = updatedRequest;
+          _passengerStatus = PassengerStatus.onTrip;
+          _hasServiceStarted = true;
+          _lastKnownStatus = 'charging';
+        });
+        
+        // Cargar progreso del servicio
+        await _loadServiceProgressFromBackend();
+        
+        // Mostrar notificación y animaciones
+        _updateServiceProgress('charging');
+        _showImportantStatusChangeDialog('charging');
+        
+        HapticFeedback.heavyImpact();
+        _showStatusNotification(
+          'Servicio iniciado',
+          'Tu vehículo se está cargando',
+          Icons.battery_charging_full,
+          Colors.green,
+        );
+        
+        print('✅ Estado actualizado a charging completamente');
+        return; // Salir temprano para evitar procesamiento duplicado
+      }
 
-          final timeInfo = await _getCancellationTimeInfo();
-          if (timeInfo != null && timeInfo['time_info']?['expired'] == true) {
-            print(
-                '⏰ Servicio cancelado automáticamente por expiración de 1 hora');
+      // Detectar cancelación automática por expiración
+      if (updatedRequest.status == 'cancelled' && _lastKnownStatus != 'cancelled') {
+        print('⚠️ Servicio cancelado - verificando motivo...');
+
+        final timeInfo = await _getCancellationTimeInfo();
+        if (timeInfo != null && timeInfo['time_info']?['expired'] == true) {
+          print('⏰ Servicio cancelado automáticamente por expiración de 1 hora');
+          if (mounted) {
             _showServiceExpiredDialog();
-          } else {
-            print('⚠️ Servicio cancelado por el técnico');
+          }
+        } else {
+          print('⚠️ Servicio cancelado por el técnico');
+          if (mounted) {
             _showTechnicianCancellationDialog();
           }
-
-          _resetToIdle();
-          timer.cancel();
-          return;
         }
 
-        // ✅ CARGAR PROGRESO DEL SERVICIO cuando está en 'charging'
-        if (updatedRequest.status == 'charging' &&
-            _lastKnownStatus != 'charging') {
-          await _loadServiceProgressFromBackend();
-        }
+        _resetToIdle();
+        timer.cancel();
+        return;
+      }
 
-        // ✅ ACTUALIZAR ESTADO DE LA UI cuando hay cambios
-        if (_lastKnownStatus != updatedRequest.status) {
-          print(
-              '🔄 Estado cambió de $_lastKnownStatus a ${updatedRequest.status}');
+      // Cargar progreso del servicio cuando está en 'charging' (verificación adicional)
+      if (updatedRequest.status == 'charging' && _lastKnownStatus != 'charging') {
+        await _loadServiceProgressFromBackend();
+      }
 
-          // Actualizar el progreso visual
-          _updateServiceProgress(updatedRequest.status);
+      // Actualizar estado de la UI cuando hay cambios
+      if (_lastKnownStatus != updatedRequest.status) {
+        print('🔄 Estado cambió de $_lastKnownStatus a ${updatedRequest.status}');
 
-          // Mostrar animación de cambio
-          _showStatusChangeAnimation(updatedRequest.status);
+        // Actualizar el progreso visual
+        _updateServiceProgress(updatedRequest.status);
 
-          // Cargar datos específicos del nuevo estado
-          await _handleStatusTransition(updatedRequest.status);
-        }
+        // Mostrar animación de cambio
+        _showStatusChangeAnimation(updatedRequest.status);
 
-        // Actualizar request activo
+        // Cargar datos específicos del nuevo estado
+        await _handleStatusTransition(updatedRequest.status);
+      }
+
+      // Actualizar request activo solo si el widget sigue montado
+      if (mounted) {
         setState(() {
           _activeRequest = updatedRequest;
         });
-
-        // Verificar otros cambios de estado existentes...
-        _checkForStatusChanges(updatedRequest);
-      } catch (e) {
-        print("❌ Error checking status: $e");
       }
-    });
-  }
 
-  Future<void> _handleStatusTransition(String newStatus) async {
-    switch (newStatus) {
-      case 'accepted':
-        // Técnico asignado - cargar datos del técnico
-        if (_activeRequest?.technician != null) {
-          _loadTechnicianData(_activeRequest!);
-          _startCancellationTimer();
-        }
-        break;
+      // Verificar otros cambios de estado existentes
+      _checkForStatusChanges(updatedRequest);
+      
+    } catch (e) {
+      print("❌ Error checking status: $e");
+      // No cancelar el timer por errores de red, pero sí verificar mounted
+      if (!mounted) {
+        timer.cancel();
+      }
+    }
+  });
+}  
+Future<void> _handleStatusTransition(String newStatus) async {
+  if (!mounted) return; // Verificar al inicio
+  
+  switch (newStatus) {
+    case 'accepted':
+      // Técnico asignado - cargar datos del técnico
+      if (_activeRequest?.technician != null) {
+        _loadTechnicianData(_activeRequest!);
+        _startCancellationTimer();
+      }
+      break;
 
-      case 'en_route':
-        // Técnico en camino - iniciar tracking
-        _startTechnicianLocationTracking();
-        break;
+    case 'en_route':
+      // Técnico en camino - iniciar tracking
+      _startTechnicianLocationTracking();
+      break;
 
-      case 'on_site':
-        // Técnico llegó al sitio
+    case 'on_site':
+      // Técnico llegó al sitio
+      if (mounted) {
         HapticFeedback.heavyImpact();
         _showStatusNotification(
           'Técnico ha llegado',
@@ -3239,13 +3862,14 @@ void _cancelService() {
           Icons.location_on,
           Colors.purple,
         );
-        break;
+      }
+      break;
 
-      case 'charging':
-        // Servicio iniciado - cargar progreso
-        await _loadServiceProgressFromBackend();
+    case 'charging':
+      // Servicio iniciado - cargar progreso
+      await _loadServiceProgressFromBackend();
 
-        // Actualizar estado de la UI
+      if (mounted) { // Solo setState si está montado
         setState(() {
           _passengerStatus = PassengerStatus.onTrip;
           _hasServiceStarted = true;
@@ -3258,10 +3882,12 @@ void _cancelService() {
           Icons.battery_charging_full,
           Colors.green,
         );
-        break;
+      }
+      break;
 
-      case 'completed':
-        // Servicio completado
+    case 'completed':
+      // Servicio completado
+      if (mounted) {
         setState(() {
           _passengerStatus = PassengerStatus.completed;
         });
@@ -3280,11 +3906,11 @@ void _cancelService() {
             _showRatingDialog();
           }
         });
-        break;
-    }
+      }
+      break;
   }
+}  
 
-  // Método para iniciar polling del progreso del servicio
   void _startServiceProgressPolling() {
     _serviceProgressTimer?.cancel();
 
@@ -3947,14 +4573,18 @@ void _cancelService() {
           _startTechnicianLocationTracking();
           break;
 
-        case 'on_site':
-          HapticFeedback.heavyImpact();
-          _showImportantStatusChangeDialog(currentStatus);
-          break;
+       
+case 'on_site':
+  HapticFeedback.heavyImpact();
+  // Usar diálogo importante en lugar de notificación simple
+  _showImportantStatusChangeDialog(currentStatus);
+  break;
+
 
         case 'charging':
           HapticFeedback.heavyImpact();
           _showImportantStatusChangeDialog(currentStatus);
+          
           setState(() {
             _passengerStatus = PassengerStatus.onTrip;
             _hasServiceStarted = true;
@@ -5323,6 +5953,8 @@ Positioned(
 
 // Modificar el botón en _buildIdlePanel para mostrar estado correcto
 
+
+
 Widget _buildIdlePanel() {
   final l10n = AppLocalizations.of(context);
 
@@ -5412,7 +6044,7 @@ Widget _buildIdlePanel() {
           ),
         ],
 
-        // ✅ BOTÓN PRINCIPAL (ahora funciona tanto para nuevo servicio como para ver activo)
+        // ✅ BOTÓN PRINCIPAL MODIFICADO
         Container(
           width: double.infinity,
           height: 120,
@@ -5437,7 +6069,18 @@ Widget _buildIdlePanel() {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: _requestService, // ✅ El mismo método maneja ambos casos
+              onTap: () {
+                // ✅ LÓGICA SEPARADA AQUÍ
+                if (_hasActiveService && _existingRequest != null) {
+                  // Solo mostrar el servicio existente (SIN crear nuevo)
+                  print('👁️ Mostrando servicio activo existente');
+                  _showExistingActiveService(_existingRequest!);
+                } else {
+                  // Crear nuevo servicio (con todos los diálogos)
+                  print('🆕 Creando nuevo servicio');
+                  _requestService();
+                }
+              },
               borderRadius: BorderRadius.circular(24),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -5457,7 +6100,7 @@ Widget _buildIdlePanel() {
                   const SizedBox(height: 8),
                   Text(
                     _hasActiveService 
-                        ? 'Ver Servicio Activo'
+                        ? 'View Current Service'
                         : l10n.requestCharge,
                     style: GoogleFonts.inter(
                       fontSize: 18,
@@ -5467,7 +6110,7 @@ Widget _buildIdlePanel() {
                   ),
                   Text(
                     _hasActiveService
-                        ? 'Estado: ${_getServiceStatusText(_existingRequest!.status)}'
+                        ? 'Status: ${_getServiceStatusText(_existingRequest!.status)}'
                         : l10n.tapToFindTechnician,
                     style: GoogleFonts.inter(
                       fontSize: 12,
@@ -5484,6 +6127,7 @@ Widget _buildIdlePanel() {
     ),
   );
 }
+
   Widget _buildBottomPanel() {
     Widget content;
 
@@ -5543,30 +6187,7 @@ Widget _buildIdlePanel() {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Icon(Icons.attach_money,
-                            color: AppColors.primary, size: 24),
-                        const SizedBox(height: 4),
-                        Text(
-                          '\$${_estimatedPrice.toStringAsFixed(2)}',
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          l10n.estimated, // ✅ CAMBIAR de 'Estimado'
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                   
                   Container(
                     width: 1,
                     height: 40,
