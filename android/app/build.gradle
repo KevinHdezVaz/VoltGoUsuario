@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "us.voltgoUser.appc"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -21,21 +21,20 @@ android {
 
     defaultConfig {
         applicationId = "us.voltgoUser.appc"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 24
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true // 🔥 Necesario para Firebase
     }
 
-    buildTypes {
-        release {
-            signingConfig = signingConfigs.debug
-            // 🔥 Optimización para release (opcional)
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        }
+   buildTypes {
+    release {
+        minifyEnabled true
+        proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        signingConfig signingConfigs.debug
     }
+}
 }
 
 flutter {

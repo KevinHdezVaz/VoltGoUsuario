@@ -2,6 +2,7 @@ import 'package:Voltgo_User/data/services/RatingService.dart';
 import 'package:Voltgo_User/l10n/app_localizations.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Para HapticFeedback
 import 'package:google_fonts/google_fonts.dart'; 
 
 class RatingDialog extends StatefulWidget {
@@ -26,7 +27,7 @@ class RatingDialog extends StatefulWidget {
 
 class _RatingDialogState extends State<RatingDialog> 
     with SingleTickerProviderStateMixin {
-  int _rating = 5;
+  int _rating = 0; // ✅ Inicializar sin rating seleccionado
   final _commentController = TextEditingController();
   bool _isSubmitting = false;
   late AnimationController _animationController;
@@ -91,6 +92,12 @@ class _RatingDialogState extends State<RatingDialog>
   }
 
   Future<void> _submitRating() async {
+    // ✅ Validar que el usuario haya seleccionado una calificación
+    if (_rating == 0) {
+      _showError('Please select a rating before submitting');
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -102,7 +109,7 @@ class _RatingDialogState extends State<RatingDialog>
 
       if (success) {
         Navigator.of(context).pop();
-        _showSuccess('¡Gracias por tu calificación!');
+        _showSuccess('Thank you for your feedback!');
         widget.onRatingSubmitted();
       } else {
         _showError('Error al enviar la calificación. Intenta de nuevo.');
@@ -116,7 +123,7 @@ class _RatingDialogState extends State<RatingDialog>
     }
   }
 
- String _getRatingText() {
+  String _getRatingText() {
     switch (_rating) {
       case 1:
         return 'Very bad';
@@ -129,10 +136,9 @@ class _RatingDialogState extends State<RatingDialog>
       case 5:
         return 'Excellent';
       default:
-        return '';
+        return 'Tap to rate'; // ✅ Texto cuando no hay rating seleccionado
     }
   }
-
 
   Color _getRatingColor() {
     switch (_rating) {
@@ -145,7 +151,7 @@ class _RatingDialogState extends State<RatingDialog>
       case 5:
         return AppColors.success;
       default:
-        return AppColors.warning;
+        return AppColors.textSecondary; // ✅ Color neutral cuando no hay rating
     }
   }
 
@@ -212,7 +218,6 @@ class _RatingDialogState extends State<RatingDialog>
               ),
               const SizedBox(height: 8),
                
-               
               // Información del técnico
               Container(
                 padding: const EdgeInsets.all(12),
@@ -273,43 +278,71 @@ class _RatingDialogState extends State<RatingDialog>
               ),
               const SizedBox(height: 16),
               
-              // Sistema de estrellas con animación
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (index) {
-                  final starIndex = index + 1;
-                  final isSelected = starIndex <= _rating;
-                  
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _rating = starIndex;
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(
-                        isSelected ? Icons.star : Icons.star_border,
-                        color: isSelected ? _getRatingColor() : AppColors.gray300,
-                        size: 36,
+              // ✅ Sistema de estrellas mejorado con mejor feedback visual
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: _rating == 0 
+                    ? AppColors.gray300 
+                    : _getRatingColor().withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _rating == 0 
+                      ? AppColors.gray300 
+                      : _getRatingColor().withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) {
+                    final starIndex = index + 1;
+                    final isSelected = starIndex <= _rating;
+                    
+                    return GestureDetector(
+                      onTap: () {
+                        // ✅ Feedback háptico para confirmar selección
+                        HapticFeedback.lightImpact();
+                        setState(() {
+                          _rating = starIndex;
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        transform: Matrix4.identity()
+                          ..scale(isSelected ? 1.1 : 1.0), // ✅ Escala para estrellas seleccionadas
+                        child: Icon(
+                          isSelected ? Icons.star : Icons.star_border,
+                          color: isSelected ? _getRatingColor() : AppColors.gray300,
+                          size: 36,
+                        ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }),
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               
-              // Texto de la calificación
+              // ✅ Texto de la calificación con mejor indicación visual
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
-                child: Text(
-                  _getRatingText(),
+                child: Container(
                   key: ValueKey(_rating),
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _getRatingColor(),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _rating == 0 
+                      ? Colors.transparent 
+                      : _getRatingColor().withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _getRatingText(),
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _getRatingColor(),
+                    ),
                   ),
                 ),
               ),
@@ -344,7 +377,7 @@ class _RatingDialogState extends State<RatingDialog>
               ),
               const SizedBox(height: 24),
               
-              // Botones de acción
+              // ✅ Botones de acción mejorados
               Row(
                 children: [
                   Expanded(
@@ -373,9 +406,12 @@ class _RatingDialogState extends State<RatingDialog>
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submitRating,
+                      // ✅ Deshabilitar botón si no hay rating seleccionado
+                      onPressed: (_isSubmitting || _rating == 0) ? null : _submitRating,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: _rating == 0 
+                          ? AppColors.gray300 
+                          : AppColors.primary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -392,9 +428,13 @@ class _RatingDialogState extends State<RatingDialog>
                               ),
                             )
                           : Text(
-                              'Submit Rating',
+                              _rating == 0 
+                                ? 'Select rating' 
+                                : 'Submit Rating',
                               style: GoogleFonts.inter(
-                                color: Colors.white,
+                                color: _rating == 0 
+                                  ? AppColors.textSecondary 
+                                  : Colors.white,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
                               ),
@@ -411,7 +451,7 @@ class _RatingDialogState extends State<RatingDialog>
   }
 }
 
-// Widget para mostrar calificaciones en listas
+// Widget para mostrar calificaciones en listas (sin cambios)
 class RatingDisplay extends StatelessWidget {
   final double rating;
   final int? totalRatings;

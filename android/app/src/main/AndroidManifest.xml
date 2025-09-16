@@ -11,6 +11,7 @@
     <application
         android:label="MyVoltGo"
         android:name="${applicationName}"
+         android:theme="@style/LaunchTheme"  
         android:icon="@mipmap/ic_launcher">
         
         <!-- OneSignal v5.x configuración -->

@@ -7,6 +7,7 @@ import 'package:Voltgo_User/data/services/vehicles_service.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
 import 'package:Voltgo_User/ui/login/LoginScreen.dart';
 import 'package:Voltgo_User/ui/login/add_vehicle_screen.dart';
+import 'package:Voltgo_User/ui/profile/CurrentSubscriptionScreen.dart';
 import 'package:Voltgo_User/ui/profile/EditProfileScreen.dart';
 import 'package:Voltgo_User/ui/profile/PrivacyPolicyScreen.dart';
 import 'package:Voltgo_User/ui/profile/TermsAndConditionsScreen.dart';
@@ -498,12 +499,18 @@ void _handleEditVehicle() async {
                     );
                   },
                 ),
-                _buildSettingsItem(
-                  icon: Icons.account_balance_wallet_outlined,
-                  title: l10n.paymentMethods,
-                  onTap: () {},
-                ),
-
+              _buildSettingsItem(
+  icon: Icons.card_membership,
+  title: 'My Subscription',
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CurrentSubscriptionScreen(),
+      ),
+    );
+  },
+),
                 const Divider(height: 32, color: AppColors.gray300),
 
                 // Vehicle Section

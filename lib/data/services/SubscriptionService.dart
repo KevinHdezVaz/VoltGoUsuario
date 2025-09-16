@@ -2,7 +2,6 @@
 import 'dart:convert';
 
 import 'package:Voltgo_User/data/models/UserSubscription.dart';
-import 'package:Voltgo_User/data/services/StripeService.dart';
 import 'package:Voltgo_User/utils/TokenStorage.dart';
 import 'package:Voltgo_User/utils/constants.dart';
 import 'package:http/http.dart' as http;
@@ -38,7 +37,6 @@ class SubscriptionService {
     throw e;
   }
 }
-
 
 
 // En StripeService

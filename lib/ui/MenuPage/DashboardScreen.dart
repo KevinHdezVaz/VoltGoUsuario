@@ -6177,50 +6177,8 @@ Widget _buildIdlePanel() {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Contenedor de Precio y Tiempo
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                   
-                  Container(
-                    width: 1,
-                    height: 40,
-                    color: AppColors.gray300,
-                  ),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Icon(Icons.access_time,
-                            color: AppColors.primary, size: 24),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$_estimatedTime min',
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          l10n.arrival, // ✅ CAMBIAR de 'Llegada'
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+           
+            
 
             Text(
               l10n.nearbyTechnicians, // ✅ CAMBIAR de 'Buscando técnicos cercanos'

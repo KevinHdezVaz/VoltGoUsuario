@@ -270,9 +270,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
     final l10n = AppLocalizations.of(context);
 
     showDialog(
+      
       context: context,
       barrierDismissible: false,
       builder: (context) => Dialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
