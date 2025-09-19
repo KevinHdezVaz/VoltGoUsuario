@@ -24,7 +24,12 @@ class AppLocalizations {
       'estimated': 'Estimated',
             'otros': 'Others',
             'politicadeprivacidad': 'Privacy Policy',
-
+'noTechniciansAvailable': 'No Technicians Available',
+      'noTechniciansInArea': 'There are no technicians available in your area at this moment.',
+      'suggestions': 'Suggestions',
+      'suggestionsDetails': '• Try again in a few minutes\n'
+          '• Technicians are usually more available outside peak hours\n'
+          '• Consider requesting the service later',
       'arrival': 'Arrival',
   'chatWith': 'Chat with {name}',
   'serviceNumber': 'Service #{id}',
@@ -90,6 +95,8 @@ class AppLocalizations {
   'initialLevel': 'Initial Level',
   'chargeTime': 'Charge Time',
   'serviceNotes': 'Service Notes',
+  'activePlan': 'Active Plan: {planName}',
+      'remainingServices': 'Remaining Services: {count}',
   'vehicle': 'Vehicle',
    'editElectricVehicle': 'Edit Electric Vehicle',
     'vehicleUpdated': 'Vehicle Updated!',
@@ -167,6 +174,12 @@ class AppLocalizations {
           'To request a service we need access to your location. Please enable location services.',
       'activate': 'Activate',
       'permissionDenied': 'Permission Denied',
+      'planRequired': 'Plan Required',
+      'activePlanRequired': 'To use the charging service, you need to have an active plan.',
+      'planDetails': '• Monthly plans with unlimited services\n'
+          '• Single-use plans for occasional use\n'
+          '• Guaranteed response within 60 minutes',
+      'viewPlans': 'View Plans',
       'cannotContinue':
           'We cannot continue without access to your location. Please grant the necessary permissions in the app settings.',
       'goToSettings': 'Go to Settings',
@@ -214,6 +227,11 @@ class AppLocalizations {
     'yesCancel': 'Yes, cancel',
       'requested': 'Requested',
       'whatToDo': 'What would you like to do?',
+      'cancelExpiredService': 'Cancel Expired Service',
+      'serviceDetailsText': '• Time elapsed: {timeElapsed}\n'
+          '• Current status: {status}\n'
+          '• No charges will be applied for cancellation\n'
+          '• You can request a new service immediately',
       'viewService': 'View Service',
       'timeExpired': 'Time Expired',
       'cannotCancelNow': 'It is no longer possible to cancel this service.',
@@ -905,6 +923,12 @@ class AppLocalizations {
   'noServiceHistory': 'No hay historial de servicios',
        'charging': 'Cargando',
       'today': 'Hoy',
+      'planRequired': 'Plan Requerido',
+      'activePlanRequired': 'Para usar el servicio de carga, necesitas tener un plan activo.',
+      'planDetails': '• Planes mensuales con servicios ilimitados\n'
+          '• Planes únicos para uso ocasional\n'
+          '• Respuesta garantizada en 60 minutos',
+      'viewPlans': 'Ver Planes',
       'yesterday': 'Ayer',
        'errorLoadingHistory': 'Error al cargar el historial',
        'noServicesInHistory': 'No tienes servicios en tu historial.',
@@ -990,7 +1014,11 @@ class AppLocalizations {
     'questionsContact': 'Si tienes preguntas sobre estos términos, contáctanos en:',
         'updateVehicle': 'Actualizar Vehículo',
   'requestFor': 'Solicitar por {price}',
-
+'cancelExpiredService': 'Cancelar por Tiempo Expirado',
+      'serviceDetailsText': '• Tiempo transcurrido: {timeElapsed}\n'
+          '• Estado actual: {status}\n'
+          '• No se aplicarán cargos por cancelación\n'
+          '• Podrás solicitar un nuevo servicio inmediatamente',
     // Política de Privacidad - ESPAÑOL
     'privacyPolicy': 'Política de Privacidad',
     'dataCollection': '1. Información que Recopilamos',
@@ -1040,6 +1068,12 @@ class AppLocalizations {
       'black': 'Negro',
       'gray': 'Gris',
       'silver': 'Plata',
+      'noTechniciansAvailable': 'No Hay Técnicos Disponibles',
+      'noTechniciansInArea': 'No hay técnicos disponibles en tu área en este momento.',
+      'suggestions': 'Sugerencias',
+      'suggestionsDetails': '• Intenta nuevamente en unos minutos\n'
+          '• Los técnicos suelen estar más disponibles fuera de horas pico\n'
+          '• Considera solicitar el servicio más tarde',
       'red': 'Rojo',
       'blue': 'Azul',
       'green': 'Verde',
@@ -1117,6 +1151,8 @@ class AppLocalizations {
 "availableTechnicians": "Técnicos disponibles",
 "priceBreakdown": "Desglose de Precio",
 "baseFare": "Tarifa base",
+'activePlan': 'Plan Activo: {planName}',
+      'remainingServices': 'Servicios restantes: {count}',
 "distanceFee": "Distancia ({distance} km)",
 "estimatedTimeFee": "Tiempo estimado",
 "total": "Total",
@@ -1617,7 +1653,9 @@ String get profileCompleted =>
 String get phoneNumberWillBeUsedFor =>
     _localizedValues[locale.languageCode]!['phoneNumberWillBeUsedFor']!;
  
-
+   String get noTechniciansInArea => _localizedValues[locale.languageCode]!['noTechniciansInArea']!;
+  String get suggestions => _localizedValues[locale.languageCode]!['suggestions']!;
+  String get suggestionsDetails => _localizedValues[locale.languageCode]!['suggestionsDetails']!;
 // Service information
   String get serviceInformation =>
       _localizedValues[locale.languageCode]!['serviceInformation']!;
@@ -1891,6 +1929,8 @@ String get noServiceHistory => _localizedValues[locale.languageCode]!['noService
   String get technicalSpecs =>
       _localizedValues[locale.languageCode]!['technicalSpecs']!;
 
+ 
+
 // Labels de campos
   String get brand => _localizedValues[locale.languageCode]!['brand']!;
   String get model => _localizedValues[locale.languageCode]!['model']!;
@@ -1960,7 +2000,11 @@ String get cannotSendMessages => _localizedValues[locale.languageCode]!['cannotS
 String get cancelServiceConfirmation => _localizedValues[locale.languageCode]!['cancelServiceConfirmation']!;
 String get areYouSureCancel => _localizedValues[locale.languageCode]!['areYouSureCancel']!; 
 
-
+String activePlan(String planName) =>
+      _localizedValues[locale.languageCode]!['activePlan']!.replaceAll('{planName}', planName);
+  
+  String remainingServices(String count) =>
+      _localizedValues[locale.languageCode]!['remainingServices']!.replaceAll('{count}', count);
 // Mensajes de validación específicos
   String get selectBrandMessage =>
       _localizedValues[locale.languageCode]!['selectBrandMessage']!;
@@ -1980,7 +2024,10 @@ String get areYouSureCancel => _localizedValues[locale.languageCode]!['areYouSur
       _localizedValues[locale.languageCode]!['selectConnectorMessage']!;
   String get completeRequiredFields =>
       _localizedValues[locale.languageCode]!['completeRequiredFields']!;
-
+String get planRequired => _localizedValues[locale.languageCode]!['planRequired']!;
+  String get activePlanRequired => _localizedValues[locale.languageCode]!['activePlanRequired']!;
+  String get planDetails => _localizedValues[locale.languageCode]!['planDetails']!;
+  String get viewPlans => _localizedValues[locale.languageCode]!['viewPlans']!;
 // Mensajes de validación generales
   String get fieldRequired =>
       _localizedValues[locale.languageCode]!['fieldRequired']!;
@@ -1995,6 +2042,12 @@ String get areYouSureCancel => _localizedValues[locale.languageCode]!['areYouSur
   String get previous => _localizedValues[locale.languageCode]!['previous']!;
   String get next => _localizedValues[locale.languageCode]!['next']!;
   String get register => _localizedValues[locale.languageCode]!['register']!;
+
+   String serviceDetailsText2(String timeElapsed, String status) =>
+      _localizedValues[locale.languageCode]!['serviceDetailsText']!
+          .replaceAll('{timeElapsed}', timeElapsed)
+          .replaceAll('{status}', status);
+
 
 // Success messages
   String get thankYouForYourRating =>

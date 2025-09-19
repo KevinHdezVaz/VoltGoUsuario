@@ -4,6 +4,7 @@ import 'package:Voltgo_User/data/services/ChatHistoryScreen.dart';
 import 'package:Voltgo_User/data/services/auth_api_service.dart';
 import 'package:Voltgo_User/data/services/vehicles_service.dart';
  import 'package:Voltgo_User/l10n/app_localizations.dart';
+import 'package:Voltgo_User/ui/MenuPage/SubscriptionHistoryScreen.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
 import 'package:Voltgo_User/ui/login/LoginScreen.dart';
 import 'package:Voltgo_User/ui/login/add_vehicle_screen.dart';
@@ -123,6 +124,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           barrierDismissible: true,
           builder: (BuildContext context) {
             return AlertDialog(
+              backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -506,7 +508,7 @@ void _handleEditVehicle() async {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const CurrentSubscriptionScreen(),
+        builder: (context) => const SubscriptionHistoryScreen(),
       ),
     );
   },

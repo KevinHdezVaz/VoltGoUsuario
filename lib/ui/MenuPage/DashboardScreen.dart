@@ -613,7 +613,7 @@ Future<void> _initializeOneSignal() async {
                     ),
                   ),
                   child: Text(
-                    'Entendido',
+                    ln10.understood,
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -1873,6 +1873,7 @@ Future<void> _checkVehicleRegistration() async {
       print('⚠️ Perfil del usuario incompleto - falta información');
       setState(() => _isCheckingVehicle = false);
       
+      
       // Obtener token para pasar a CompleteProfileScreen
       final token = await TokenStorage.getToken();
       if (token != null) {
@@ -2553,28 +2554,28 @@ Future<void> _showPlanSelectionDialog() async {
   }
 }
 
-
 Future<void> _purchasePlan(StripePlan plan) async {
   try {
     setState(() => _isLoading = true);
     
-    // ✅ USAR StripeService en lugar de SubscriptionService
+    // ✅ USE StripeService instead of SubscriptionService
     final success = await StripeService.purchaseSubscription(priceId: plan.priceId);
     
     if (success) {
-      _showSuccessMessage('¡Plan adquirido exitosamente!');
+      _showSuccessMessage('Plan purchased successfully!');
       await Future.delayed(Duration(seconds: 2));
       await _proceedWithServiceRequest();
     } else {
-      _showErrorMessage('Error al procesar el pago');
+      _showErrorMessage('Error processing the payment');
     }
     
   } catch (e) {
-    _showErrorMessage('Error al comprar plan: $e');
+    _showErrorMessage('Error purchasing plan: $e');
   } finally {
     setState(() => _isLoading = false);
   }
 }
+
 
 // Método existente pero renombrado para claridad
 Future<void> _proceedWithServiceRequest() async {
@@ -2753,8 +2754,6 @@ void _showExistingActiveService(ServiceRequestModel service) {
 }
 
 
-
-// ✅ NUEVO: Diálogo específico cuando no hay técnicos
 Future<void> _showNoTechniciansAvailableDialog() async {
   showDialog(
     context: context,
@@ -2765,14 +2764,14 @@ Future<void> _showNoTechniciansAvailableDialog() async {
         children: [
           Icon(Icons.person_off, color: Colors.orange, size: 40),
           SizedBox(height: 8),
-          Text('No Hay Técnicos Disponibles'),
+          Text(AppLocalizations.of(context).noTechniciansAvailable),
         ],
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'No hay técnicos disponibles en tu área en este momento.',
+            AppLocalizations.of(context).noTechniciansInArea,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(fontSize: 16),
           ),
@@ -2790,7 +2789,7 @@ Future<void> _showNoTechniciansAvailableDialog() async {
                     Icon(Icons.schedule, color: Colors.blue, size: 20),
                     SizedBox(width: 8),
                     Text(
-                      'Sugerencias:',
+                      AppLocalizations.of(context).suggestions,
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.bold,
                         color: Colors.blue.shade700,
@@ -2800,9 +2799,7 @@ Future<void> _showNoTechniciansAvailableDialog() async {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  '• Intenta nuevamente en unos minutos\n'
-                  '• Los técnicos suelen estar más disponibles fuera de horas pico\n'
-                  '• Considera solicitar el servicio más tarde',
+                  AppLocalizations.of(context).suggestionsDetails,
                   style: GoogleFonts.inter(fontSize: 14),
                 ),
               ],
@@ -2813,7 +2810,7 @@ Future<void> _showNoTechniciansAvailableDialog() async {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Entendido'),
+          child: Text(AppLocalizations.of(context).understood),
         ),
         ElevatedButton(
           onPressed: () {
@@ -2827,7 +2824,10 @@ Future<void> _showNoTechniciansAvailableDialog() async {
             backgroundColor: AppColors.primary,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
-          child: Text('Reintentar', style: TextStyle(color: Colors.white)),
+          child: Text(
+            AppLocalizations.of(context).retry,
+            style: TextStyle(color: Colors.white),
+          ),
         ),
       ],
     ),
@@ -2837,61 +2837,63 @@ Future<void> _showNoTechniciansAvailableDialog() async {
 
 // ✅ NUEVO: Diálogo cuando no tiene suscripción
 Future<void> _showSubscriptionRequiredDialog() async {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Column(
-        children: [
-          Icon(Icons.card_membership, color: AppColors.warning, size: 40),
-          SizedBox(height: 8),
-          Text('Plan Requerido'),
-        ],
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Para usar el servicio de carga, necesitas tener un plan activo.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(fontSize: 16),
-          ),
-          SizedBox(height: 16),
-          Container(
-            padding: EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '• Planes mensuales con servicios ilimitados\n'
-              '• Planes únicos para uso ocasional\n'
-              '• Respuesta garantizada en 60 minutos',
-              style: GoogleFonts.inter(fontSize: 14),
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancelar'),
+ showDialog(
+  context: context,
+  barrierDismissible: false,
+  builder: (context) => AlertDialog(
+    backgroundColor: Colors.white,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    title: Column(
+      children: [
+        Icon(Icons.card_membership, color: AppColors.warning, size: 40),
+        SizedBox(height: 8),
+        Text(AppLocalizations.of(context).planRequired),
+      ],
+    ),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          AppLocalizations.of(context).activePlanRequired,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(fontSize: 16),
         ),
-        ElevatedButton(
-          onPressed: () async {
-            Navigator.of(context).pop();
-            await _showPlanPurchaseDialog();
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        SizedBox(height: 16),
+        Container(
+          padding: EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Text('Ver Planes', style: TextStyle(color: Colors.white)),
+          child: Text(
+            AppLocalizations.of(context).planDetails,
+            style: GoogleFonts.inter(fontSize: 14),
+          ),
         ),
       ],
     ),
-  );
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: Text(AppLocalizations.of(context).cancel),
+      ),
+      ElevatedButton(
+        onPressed: () async {
+          Navigator.of(context).pop();
+          await _showPlanPurchaseDialog();
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Text(
+          AppLocalizations.of(context).viewPlans,
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+    ],
+  ),
+);
 }
 
 // ✅ NUEVO: Diálogo para comprar planes
@@ -2931,7 +2933,7 @@ Future<void> _purchaseSelectedPlan(StripePlan plan) async {
     final success = await StripeService.purchaseSubscription(priceId: plan.priceId);
     
     if (success) {
-      _showSuccessMessage('¡Plan adquirido exitosamente!');
+      _showSuccessMessage('Plan adquiredment successfully!');
       // Esperar un momento para que se actualice en el servidor
       await Future.delayed(Duration(seconds: 2));
       // Continuar con el servicio
@@ -2952,15 +2954,13 @@ Future<void> _purchaseSelectedPlan(StripePlan plan) async {
     setState(() => _isLoading = false);
   }
 }
-
-// ✅ NUEVO: Diálogo de confirmación simple del servicio
 Future<bool?> _showServiceConfirmationDialog({
   required Map<String, dynamic> estimation,
   required UserSubscription userPlan,
 }) async {
   final estimatedTime = int.parse(estimation['estimated_time_minutes'].toString());
   final distance = double.parse(estimation['distance_km'].toString());
-  
+
   return showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -2977,7 +2977,7 @@ Future<bool?> _showServiceConfirmationDialog({
             child: Icon(Icons.electric_bolt, color: AppColors.primary),
           ),
           SizedBox(width: 12),
-          Text('Confirmar Servicio'),
+          Text(AppLocalizations.of(context).confirmService),
         ],
       ),
       content: Column(
@@ -3001,7 +3001,7 @@ Future<bool?> _showServiceConfirmationDialog({
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Plan Activo: ${userPlan.planName}',
+                        AppLocalizations.of(context).activePlan(userPlan.planName!),
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.bold,
                           color: Colors.green.shade700,
@@ -3009,7 +3009,7 @@ Future<bool?> _showServiceConfirmationDialog({
                       ),
                       if (userPlan.planType == 'one_time' && userPlan.remainingServices != null)
                         Text(
-                          'Servicios restantes: ${userPlan.remainingServices}',
+                          AppLocalizations.of(context).remainingServices(userPlan.remainingServices.toString()),
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             color: Colors.green.shade600,
@@ -3021,9 +3021,7 @@ Future<bool?> _showServiceConfirmationDialog({
               ],
             ),
           ),
-          
           SizedBox(height: 16),
-          
           // Detalles del servicio
           Container(
             padding: EdgeInsets.all(12),
@@ -3036,8 +3034,8 @@ Future<bool?> _showServiceConfirmationDialog({
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Tiempo estimado:', style: GoogleFonts.inter()),
-                    Text('$estimatedTime min', 
+                    Text(AppLocalizations.of(context).estimatedTime, style: GoogleFonts.inter()),
+                    Text('$estimatedTime ${AppLocalizations.of(context).minutes}', 
                          style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -3045,8 +3043,8 @@ Future<bool?> _showServiceConfirmationDialog({
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Distancia:', style: GoogleFonts.inter()),
-                    Text('${distance.toStringAsFixed(1)} km', 
+                    Text(AppLocalizations.of(context).distance, style: GoogleFonts.inter()),
+                    Text('${distance.toStringAsFixed(1)} ${AppLocalizations.of(context).km}', 
                          style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
                   ],
                 ),
@@ -3058,7 +3056,7 @@ Future<bool?> _showServiceConfirmationDialog({
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text('Cancelar'),
+          child: Text(AppLocalizations.of(context).cancel),
         ),
         ElevatedButton(
           onPressed: () => Navigator.of(context).pop(true),
@@ -3066,7 +3064,10 @@ Future<bool?> _showServiceConfirmationDialog({
             backgroundColor: AppColors.primary,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
-          child: Text('Solicitar Servicio', style: TextStyle(color: Colors.white)),
+          child: Text(
+            AppLocalizations.of(context).requestService,
+            style: TextStyle(color: Colors.white),
+          ),
         ),
       ],
     ),
@@ -3764,9 +3765,9 @@ void _startStatusChecker() {
         _showImportantStatusChangeDialog('charging');
         
         HapticFeedback.heavyImpact();
-        _showStatusNotification(
-          'Servicio iniciado',
-          'Tu vehículo se está cargando',
+     _showStatusNotification(
+          'Service started',
+          'Your vehicle is charging',
           Icons.battery_charging_full,
           Colors.green,
         );
@@ -3856,9 +3857,9 @@ Future<void> _handleStatusTransition(String newStatus) async {
       // Técnico llegó al sitio
       if (mounted) {
         HapticFeedback.heavyImpact();
-        _showStatusNotification(
-          'Técnico ha llegado',
-          'El técnico está preparando el equipo',
+      _showStatusNotification(
+          'Technician has arrived',
+          'The technician is preparing the equipment',
           Icons.location_on,
           Colors.purple,
         );
@@ -3876,12 +3877,13 @@ Future<void> _handleStatusTransition(String newStatus) async {
         });
 
         HapticFeedback.heavyImpact();
-        _showStatusNotification(
-          'Servicio iniciado',
-          'Tu vehículo se está cargando',
-          Icons.battery_charging_full,
-          Colors.green,
-        );
+       _showStatusNotification(
+  'Service started',
+  'Your vehicle is charging',
+  Icons.battery_charging_full,
+  Colors.green,
+);
+
       }
       break;
 
@@ -3893,12 +3895,13 @@ Future<void> _handleStatusTransition(String newStatus) async {
         });
 
         HapticFeedback.heavyImpact();
-        _showStatusNotification(
-          '¡Servicio completado!',
-          'Tu vehículo ha sido cargado exitosamente',
-          Icons.check_circle,
-          Colors.green,
-        );
+       _showStatusNotification(
+  'Service completed!',
+  'Your vehicle has been successfully charged',
+  Icons.check_circle,
+  Colors.green,
+);
+
 
         // Mostrar diálogo de calificación después de un momento
         Timer(const Duration(seconds: 3), () {
@@ -4179,7 +4182,7 @@ Future<void> _handleStatusTransition(String newStatus) async {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Entendido'),
+                  child: Text('Understood'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -4313,7 +4316,7 @@ Future<void> _handleStatusTransition(String newStatus) async {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Entendido'),
+            child: Text('Understood'),
           ),
           if (_activeRequest?.technician != null)
             ElevatedButton(
@@ -4441,7 +4444,7 @@ Future<void> _handleStatusTransition(String newStatus) async {
               ),
             ),
             child:
-                const Text('Entendido', style: TextStyle(color: Colors.white)),
+                const Text('Understood', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -4646,7 +4649,7 @@ case 'on_site':
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
               ),
-              child: const Text('Entendido',
+              child: const Text('Understood',
                   style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -5127,7 +5130,7 @@ void _showRatingDialog() {
               ),
             ),
             child:
-                const Text('Entendido', style: TextStyle(color: Colors.white)),
+                const Text('Understood', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -5275,102 +5278,100 @@ void _showRatingDialog() {
       ),
     );
   }
+void _showForceExpireConfirmation() {
+  final referenceTime =
+      _activeRequest!.acceptedAt ?? _activeRequest!.requestedAt;
+  final hoursElapsed = DateTime.now().difference(referenceTime).inHours;
+  final minutesElapsed = DateTime.now().difference(referenceTime).inMinutes;
 
-// ✅ DIÁLOGO de confirmación para expiración forzada
-  void _showForceExpireConfirmation() {
-    final referenceTime =
-        _activeRequest!.acceptedAt ?? _activeRequest!.requestedAt;
-    final hoursElapsed = DateTime.now().difference(referenceTime).inHours;
-    final minutesElapsed = DateTime.now().difference(referenceTime).inMinutes;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(Icons.timer_off, color: Colors.orange, size: 30),
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 12),
-            const Expanded(child: Text('Cancelar por Tiempo Expirado')),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '¿Estás seguro de que deseas cancelar este servicio?',
-              style: GoogleFonts.inter(fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.blue, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Información del servicio:',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '• Tiempo transcurrido: ${hoursElapsed}h ${minutesElapsed % 60}m\n'
-                    '• Estado actual: ${_activeRequest!.status}\n'
-                    '• No se aplicarán cargos por cancelación\n'
-                    '• Podrás solicitar un nuevo servicio inmediatamente',
-                    style: GoogleFonts.inter(fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancelar'),
+            child: Icon(Icons.timer_off, color: Colors.orange, size: 30),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _forceExpireService();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+          const SizedBox(width: 12),
+          Expanded(child: Text(AppLocalizations.of(context).cancelExpiredService)),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            AppLocalizations.of(context).areYouSureCancelExpiredService,
+            style: GoogleFonts.inter(fontSize: 16),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
             ),
-            child: const Text(
-              'Sí, Cancelar Servicio',
-              style: TextStyle(color: Colors.white),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      AppLocalizations.of(context).serviceInformation,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  AppLocalizations.of(context).serviceDetailsText2(
+                    '${hoursElapsed}h ${minutesElapsed % 60}m',
+                    _activeRequest!.status,
+                  ),
+                  style: GoogleFonts.inter(fontSize: 13),
+                ),
+              ],
             ),
           ),
         ],
       ),
-    );
-  }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(AppLocalizations.of(context).cancel),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _forceExpireService();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: Text(
+            AppLocalizations.of(context).yesCancelService,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   void _startCancellationTimer() {
     print('🕐 Iniciando timer de cancelación...');

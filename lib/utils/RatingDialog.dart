@@ -27,7 +27,7 @@ class RatingDialog extends StatefulWidget {
 
 class _RatingDialogState extends State<RatingDialog> 
     with SingleTickerProviderStateMixin {
-  int _rating = 0; // ✅ Inicializar sin rating seleccionado
+  int _rating = 5; // ✅ Inicializar sin rating seleccionado
   final _commentController = TextEditingController();
   bool _isSubmitting = false;
   late AnimationController _animationController;

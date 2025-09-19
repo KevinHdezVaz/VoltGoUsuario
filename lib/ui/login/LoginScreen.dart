@@ -154,62 +154,73 @@ bool _isProfileComplete(UserModel user) {
 }
 
 
-  // ✅ NUEVO: Método para Google Sign In con navegación a CompleteProfile
-  Future<void> _signInWithGoogle() async {
-    final l10n = AppLocalizations.of(context);
+
+Future<void> _signInWithApple() async {
+  final l10n = AppLocalizations.of(context);
+  
+  if (_isLoading) return;
+
+  // Verificar si Apple Sign In está disponible
+  final isAvailable = await AuthService.isAppleSignInAvailable();
+  if (!isAvailable) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Apple Sign In no está disponible en este dispositivo'),
+        backgroundColor: Colors.red.shade600,
+      ),
+    );
+    return;
+  }
+
+  setState(() => _isLoading = true);
+  _animationController.repeat();
+
+  try {
+    developer.log('Iniciando Apple Sign In...');
     
-    if (_isLoading) return;
+    final result = await AuthService.loginWithApple();
+    
+    _animationController.stop();
+    if (!mounted) return;
 
-    setState(() => _isLoading = true);
-    _animationController.repeat();
-
-    try {
-      developer.log('Iniciando Google Sign In...');
+    if (result.success && result.user != null && result.token != null) {
+      developer.log('Apple Sign In exitoso');
       
-      final result = await GoogleAuthService.signInWithGoogle();
+      // Crear modelo de usuario desde la respuesta
+      final userMap = result.user!;
+      final userModel = UserModel.fromJson(userMap);
       
-      _animationController.stop();
-      if (!mounted) return;
-
-      if (result.success && result.user != null && result.token != null) {
-        developer.log('Google Sign In exitoso');
+      // Verificar si necesita completar perfil
+      final phone = userMap['phone'];
+      
+      if (phone == null || phone.toString().trim().isEmpty) {
+        developer.log('Usuario necesita completar perfil - redirigiendo a CompleteProfileScreen');
         
-        // Crear modelo de usuario desde la respuesta
-        final userMap = result.user!;
-        final userModel = UserModel.fromJson(userMap);
-        
-        // ✅ VERIFICAR SI NECESITA COMPLETAR PERFIL
-        final phone = userMap['phone'];
-        
-        if (phone == null || phone.toString().trim().isEmpty) {
-          developer.log('Usuario necesita completar perfil - redirigiendo a CompleteProfileScreen');
-          
-          // Usuario necesita completar su perfil (agregar teléfono)
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CompleteProfileScreen(
-                user: userModel,
-                token: result.token!,
-              ),
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CompleteProfileScreen(
+              user: userModel,
+              token: result.token!,
             ),
-            (route) => false,
-          );
-        } else {
-          developer.log('Usuario ya tiene perfil completo - navegando normalmente');
-          
-          // Usuario ya tiene toda la información necesaria
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.welcomeBack),
-              backgroundColor: Colors.green,
-            ),
-          );
-          
-          _navigateAfterAuth(userModel);
-        }
+          ),
+          (route) => false,
+        );
       } else {
-        // Error en Google Sign In
+        developer.log('Usuario ya tiene perfil completo - navegando normalmente');
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.welcomeBack),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        _navigateAfterAuth(userModel);
+      }
+    } else {
+      // Mostrar error (solo si no fue cancelación)
+      if (result.error != 'El usuario canceló el inicio de sesión') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.error ?? l10n.errorOccurred),
@@ -217,22 +228,23 @@ bool _isProfileComplete(UserModel user) {
           ),
         );
       }
-    } catch (e) {
-      _animationController.stop();
-      developer.log('Excepción en Google Sign In: $e');
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${l10n.errorOccurred}: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
+  } catch (e) {
+    _animationController.stop();
+    developer.log('Excepción en Apple Sign In: $e');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${l10n.errorOccurred}: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
   }
+}
 
  
   @override
@@ -274,53 +286,54 @@ bool _isProfileComplete(UserModel user) {
     );
   }
 
-  // ✅ ACTUALIZADO: _buildSocialLogins con Google funcional
+  
   Widget _buildSocialLogins() {
-    final l10n = AppLocalizations.of(context);
+  final l10n = AppLocalizations.of(context);
+  final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+  final isAndroid = Theme.of(context).platform == TargetPlatform.android;
 
-    return Column(
-      children: [
-        Row(
-          children: [
-            const Expanded(child: Divider(thickness: 1)),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text(
-                l10n.or,
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
+  return Column(
+    children: [
+      Row(
+        children: [
+          const Expanded(child: Divider(thickness: 1)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              l10n.or,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const Expanded(child: Divider(thickness: 1)),
-          ],
-        ),
-        const SizedBox(height: 24),
-        // ✅ Botón de Google - FUNCIONAL
-        _buildSocialButton(
-          assetName: 'assets/images/gugel.png',
-          text: l10n.signInWithGoogle,
-          onPressed: _isLoading ? null : _signInWithGoogle, // ← Conectar aquí
-        ),
+          ),
+          const Expanded(child: Divider(thickness: 1)),
+        ],
+      ),
+      const SizedBox(height: 24),
+      
+      // Botón de Google - Siempre visible en ambas plataformas
+      _buildSocialButton(
+        assetName: 'assets/images/gugel.png',
+        text: l10n.signInWithGoogle,
+        onPressed: _isLoading ? null : _signUpWithGoogle,
+      ),
+      
+      // Botón de Apple - Solo visible en iOS
+      if (isIOS) ...[
         const SizedBox(height: 12),
-        // Botón de Apple
         _buildSocialButton(
           assetName: 'assets/images/appell.png',
           text: l10n.signInWithApple,
-          backgroundColor: Colors.blueGrey,
+          backgroundColor: Colors.black, // Color típico de Apple
           textColor: Colors.white,
-          onPressed: _isLoading ? null : () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Apple Sign In próximamente'),
-              ),
-            );
-          },
+          onPressed: _isLoading ? null : _signInWithApple,
         ),
       ],
-    );
-  }
+    ],
+  );
+}
+
 
   Widget _buildSocialButton({
     required String assetName,
@@ -353,6 +366,89 @@ bool _isProfileComplete(UserModel user) {
       ),
     );
   }
+
+
+  
+  // ✅ NUEVO: Método para Google Sign Up con navegación a CompleteProfile
+  Future<void> _signUpWithGoogle() async {
+    final l10n = AppLocalizations.of(context);
+    
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+    _animationController.repeat();
+
+    try {
+      developer.log('Iniciando Google Sign Up...');
+      
+      final result = await GoogleAuthService.signInWithGoogle();
+      
+      _animationController.stop();
+      if (!mounted) return;
+
+      if (result.success && result.user != null && result.token != null) {
+        developer.log('Google Sign Up exitoso');
+        
+        // Crear modelo de usuario desde la respuesta
+        final userMap = result.user!;
+        final userModel = UserModel.fromJson(userMap);
+        
+        // ✅ VERIFICAR SI NECESITA COMPLETAR PERFIL
+        final phone = userMap['phone'];
+        
+        if (phone == null || phone.toString().trim().isEmpty) {
+          developer.log('Usuario necesita completar perfil - redirigiendo a CompleteProfileScreen');
+          
+          // Usuario necesita completar su perfil (agregar teléfono)
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CompleteProfileScreen(
+                user: userModel,
+                token: result.token!,
+              ),
+            ),
+            (route) => false,
+          );
+        } else {
+          developer.log('Usuario ya tiene perfil completo - navegando normalmente');
+          
+          // Usuario ya tiene toda la información necesaria
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.welcomeSuccessfulRegistration),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          _navigateAfterAuth(userModel);
+        }
+      } else {
+        // Error en Google Sign Up
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? l10n.errorOccurred),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      _animationController.stop();
+      developer.log('Excepción en Google Sign Up: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${l10n.errorOccurred}: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
 
   Widget _buildBackground(BuildContext context) {
     return Stack(children: [

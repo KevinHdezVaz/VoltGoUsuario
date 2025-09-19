@@ -54,6 +54,7 @@ class _ImprovedPlanSelectionDialogState extends State<ImprovedPlanSelectionDialo
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       elevation: 16,
       child: Container(

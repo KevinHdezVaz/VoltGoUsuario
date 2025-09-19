@@ -332,20 +332,11 @@ class _HistoryScreenState extends State<HistoryScreen>
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                trailing: item.finalCost != null // CORREGIDO: usar finalCost
-                    ? Text(
-                        '\$${item.finalCost!.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: AppColors.textPrimary,
-                        ),
-                      )
-                    : const Icon(
-                        Icons.chevron_right,
-                        color: AppColors.textSecondary,
-                        size: 24,
-                      ),
+              trailing: const Icon(
+    Icons.chevron_right,
+    color: AppColors.textSecondary,
+    size: 24,
+  ),
               ),
             ),
           ),

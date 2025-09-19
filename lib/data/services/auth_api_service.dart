@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
 import 'package:Voltgo_User/data/models/User/user_model.dart';
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:Voltgo_User/data/models/LOGIN/ResetPasswordModel.dart';
 import 'package:Voltgo_User/data/models/LOGIN/login_request_model.dart';
@@ -12,6 +15,7 @@ import 'dart:developer' as developer;
 // NUEVAS IMPORTACIONES PARA GOOGLE SIGN IN
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AuthService {
   // NUEVA CONFIGURACIÓN PARA GOOGLE SIGN IN
@@ -20,6 +24,207 @@ class AuthService {
   );
 
   static final FirebaseAuth _auth = FirebaseAuth.instance;
+
+
+
+
+ // NUEVO MÉTODO PARA APPLE SIGN IN
+  static Future<GoogleSignInResult> loginWithApple() async {
+    try {
+      developer.log('Iniciando Apple Sign In para usuarios...');
+
+      // 1. Generar nonce para seguridad
+      final rawNonce = _generateNonce();
+      final nonce = _sha256ofString(rawNonce);
+
+      // 2. Solicitar credenciales de Apple
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonce,
+      );
+
+      developer.log('Credenciales de Apple obtenidas');
+      developer.log('Apple ID: ${appleCredential.userIdentifier}');
+      developer.log('Email: ${appleCredential.email}');
+
+      // 3. Crear credencial para Firebase
+      final oauthCredential = OAuthProvider("apple.com").credential(
+        idToken: appleCredential.identityToken,
+        rawNonce: rawNonce,
+      );
+
+      // 4. Iniciar sesión en Firebase
+      final UserCredential userCredential = await _auth.signInWithCredential(oauthCredential);
+      
+      // 5. Obtener el ID Token de Firebase
+      final String? idToken = await userCredential.user?.getIdToken();
+      
+      if (idToken == null) {
+        developer.log('No se pudo obtener el token de Firebase');
+        return GoogleSignInResult(
+          success: false,
+          error: 'No se pudo obtener el token de Firebase',
+        );
+      }
+
+      developer.log('Token de Firebase obtenido para Apple Sign In');
+
+      // 6. Enviar datos al backend
+      final backendResult = await _sendAppleTokenToBackend(
+        idToken: idToken,
+        appleCredential: appleCredential,
+      );
+      
+      if (backendResult.success) {
+        developer.log('Login con Apple exitoso');
+        return GoogleSignInResult(
+          success: true,
+          user: backendResult.user,
+          token: backendResult.token,
+        );
+      } else {
+        developer.log('Error en backend con Apple: ${backendResult.error}');
+        return GoogleSignInResult(
+          success: false,
+          error: backendResult.error ?? 'Error en el servidor',
+        );
+      }
+
+    } catch (e) {
+      developer.log('Error en Apple Sign In: $e');
+      
+      // Manejar caso específico cuando el usuario cancela
+      if (e.toString().contains('The user canceled the sign in request')) {
+        return GoogleSignInResult(
+          success: false,
+          error: 'El usuario canceló el inicio de sesión',
+        );
+      }
+      
+      return GoogleSignInResult(
+        success: false,
+        error: 'Error inesperado: ${e.toString()}',
+      );
+    }
+  }
+
+// Método para enviar datos de Apple al backend
+  static Future<GoogleSignInResult> _sendAppleTokenToBackend({
+    required String idToken,
+    required AuthorizationCredentialAppleID appleCredential,
+  }) async {
+    try {
+      final url = Uri.parse('${Constants.baseUrl}/auth/apple-login');
+      
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'id_token': idToken,
+          'apple_id': appleCredential.userIdentifier,
+          'email': appleCredential.email,
+          'given_name': appleCredential.givenName,
+          'family_name': appleCredential.familyName,
+          'app_type': 'user', // Para app de usuarios
+          'package_name': 'us.voltgoUser.appc',
+        }),
+      );
+
+      developer.log('Respuesta Apple Backend - Status: ${response.statusCode}');
+      developer.log('Cuerpo Apple Backend: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        
+        if (jsonResponse['success'] == true) {
+          final token = jsonResponse['token'] as String?;
+          final user = jsonResponse['user'] as Map<String, dynamic>?;
+          
+          if (token != null && token.isNotEmpty) {
+            await TokenStorage.saveToken(token);
+            developer.log('Token de Apple guardado exitosamente');
+            return GoogleSignInResult(
+              success: true,
+              user: user,
+              token: token,
+            );
+          } else {
+            return GoogleSignInResult(
+              success: false,
+              error: 'No se recibió el token del servidor',
+            );
+          }
+        } else {
+          return GoogleSignInResult(
+            success: false,
+            error: jsonResponse['message'] ?? 'Error en la autenticación',
+          );
+        }
+      } else {
+        String errorMessage = 'Error en la autenticación con Apple';
+        try {
+          final jsonResponse = jsonDecode(response.body);
+          errorMessage = jsonResponse['message'] ?? errorMessage;
+        } catch (e) {
+          /* Mantener el mensaje por defecto */
+        }
+
+        return GoogleSignInResult(success: false, error: errorMessage);
+      }
+    } catch (e) {
+      developer.log('Excepción enviando token de Apple al backend: $e');
+      return GoogleSignInResult(
+        success: false,
+        error: 'Error de conexión con el servidor',
+      );
+    }
+  }
+
+
+// Verificar disponibilidad de Apple Sign-In
+  static Future<bool> isAppleSignInAvailable() async {
+    try {
+      if (!Platform.isIOS) {
+        developer.log('Apple Sign-In no disponible: No es dispositivo iOS');
+        return false;
+      }
+
+      final isAvailable = await SignInWithApple.isAvailable();
+      
+      if (isAvailable) {
+        developer.log('Apple Sign-In disponible en este dispositivo');
+      } else {
+        developer.log('Apple Sign-In no disponible: El dispositivo no lo soporta o está deshabilitado');
+      }
+      
+      return isAvailable;
+      
+    } catch (e) {
+      developer.log('Error verificando disponibilidad de Apple Sign-In: $e');
+      return false;
+    }
+  }
+
+  // Métodos auxiliares para Apple Sign In
+  static String _generateNonce([int length = 32]) {
+    const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)]).join();
+  }
+
+  static String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+
 
   static Future<LoginResponse> login({
     required String email,
@@ -370,17 +575,16 @@ static Future<http.Response> _makeAuthenticatedRequest(
     }
   }
 
-  // MÉTODO LOGOUT ACTUALIZADO PARA INCLUIR GOOGLE
-  static Future<void> logout() async {
+ static Future<void> logout() async {
     final token = await TokenStorage.getToken();
     
-    // Cerrar sesión de Google y Firebase
+    // Cerrar sesión de Google, Firebase y Apple
     try {
       await _googleSignIn.signOut();
       await _auth.signOut();
-      developer.log('Sesiones de Google y Firebase cerradas');
+      developer.log('Sesiones de Google, Firebase y Apple cerradas');
     } catch (e) {
-      developer.log('Error cerrando sesión de Google/Firebase: $e');
+      developer.log('Error cerrando sesión de proveedores: $e');
     }
 
     if (token == null) {

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:Voltgo_User/data/models/User/user_model.dart';
 import 'package:Voltgo_User/data/services/GoogleService.dart'; // ✅ AGREGAR IMPORT
 import 'package:Voltgo_User/l10n/app_localizations.dart';
@@ -225,51 +227,54 @@ class _RegisterScreenState extends State<RegisterScreen>
       );
     }
   }
+@override
+Widget build(BuildContext context) {
+  final isAndroid = Platform.isAndroid;
+  final isIOS = Platform.isIOS;
+  final hasSocialButtons = isAndroid || isIOS;
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: Stack(
-        children: [
-          _buildBackground(context),
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 60),
-                    _buildHeader(),
-                    const SizedBox(height: 30),
-                    // ✅ MOVIDO: Botones sociales arriba
-                    _buildSocialLogins(),
-                    const SizedBox(height: 30),
-                    // ✅ NUEVO: Separador con texto
-                    _buildSeparator(),
-                    const SizedBox(height: 30),
-                    // ✅ MOVIDO: Formulario de registro por email abajo
-                    _buildForm(),
-                    const SizedBox(height: 24),
-                    _buildFooter(),
-                    const SizedBox(height: 40),
-                  ],
-                ),
+  return Scaffold(
+    backgroundColor: AppColors.white,
+    body: Stack(
+      children: [
+        _buildBackground(context),
+        SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 60),
+                  _buildHeader(),
+                  const SizedBox(height: 30),
+                  
+                  // ✅ Botones sociales (solo aparecen en sus plataformas)
+                  _buildSocialLogins(),
+                  
+                  // ✅ Separador (solo aparece si hay botones sociales)
+                  _buildSeparator(),
+                  
+                  // ✅ Formulario de registro por email
+                  _buildForm(),
+                  const SizedBox(height: 24),
+                  _buildFooter(),
+                  const SizedBox(height: 40),
+                ],
               ),
             ),
           ),
-          if (_isLoading)
-            Center(
-              child: AnimatedTruckProgress(
-                animation: _animationController,
-              ),
+        ),
+        if (_isLoading)
+          Center(
+            child: AnimatedTruckProgress(
+              animation: _animationController,
             ),
-        ],
-      ),
-    );
-  }
-
+          ),
+      ],
+    ),
+  );
+}
   Widget _buildBackground(BuildContext context) {
     return Stack(children: [
       Positioned(
@@ -282,6 +287,100 @@ class _RegisterScreenState extends State<RegisterScreen>
               fit: BoxFit.contain)),
     ]);
   }
+
+
+
+
+Future<void> _signInWithApple() async {
+  final l10n = AppLocalizations.of(context);
+  
+  if (_isLoading) return;
+
+  // Verificar si Apple Sign In está disponible
+  final isAvailable = await AuthService.isAppleSignInAvailable();
+  if (!isAvailable) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Apple Sign In no está disponible en este dispositivo'),
+        backgroundColor: Colors.red.shade600,
+      ),
+    );
+    return;
+  }
+
+  setState(() => _isLoading = true);
+  _animationController.repeat();
+
+  try {
+    developer.log('Iniciando Apple Sign In...');
+    
+    final result = await AuthService.loginWithApple();
+    
+    _animationController.stop();
+    if (!mounted) return;
+
+    if (result.success && result.user != null && result.token != null) {
+      developer.log('Apple Sign In exitoso');
+      
+      // Crear modelo de usuario desde la respuesta
+      final userMap = result.user!;
+      final userModel = UserModel.fromJson(userMap);
+      
+      // Verificar si necesita completar perfil
+      final phone = userMap['phone'];
+      
+      if (phone == null || phone.toString().trim().isEmpty) {
+        developer.log('Usuario necesita completar perfil - redirigiendo a CompleteProfileScreen');
+        
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CompleteProfileScreen(
+              user: userModel,
+              token: result.token!,
+            ),
+          ),
+          (route) => false,
+        );
+      } else {
+        developer.log('Usuario ya tiene perfil completo - navegando normalmente');
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.welcomeBack),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        _navigateAfterAuth(userModel);
+      }
+    } else {
+      // Mostrar error (solo si no fue cancelación)
+      if (result.error != 'El usuario canceló el inicio de sesión') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? l10n.errorOccurred),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  } catch (e) {
+    _animationController.stop();
+    developer.log('Excepción en Apple Sign In: $e');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${l10n.errorOccurred}: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
+  }
+}
 
   Widget _buildHeader() {
     final l10n = AppLocalizations.of(context);
@@ -313,56 +412,76 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   // ✅ ACTUALIZADO: Botones sociales con Google funcional
-  Widget _buildSocialLogins() {
-    final l10n = AppLocalizations.of(context);
 
-    return Column(
-      children: [
-        // ✅ Botón de Google - FUNCIONAL
-        _buildSocialButton(
-          assetName: 'assets/images/gugel.png',
-          text: l10n.signUpWithGoogle,
-          onPressed: _isLoading ? null : _signUpWithGoogle, // ← Conectar aquí
-        ),
-        const SizedBox(height: 12),
-        _buildSocialButton(
-          assetName: 'assets/images/appell.png',
-          text: l10n.signUpWithApple,
-          backgroundColor: Colors.blueGrey,
-          textColor: Colors.white,
-          onPressed: _isLoading ? null : () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Apple Sign Up próximamente'),
-              ),
-            );
-          },
-        ),
+Widget _buildSocialLogins() {
+  final l10n = AppLocalizations.of(context);
+  final isAndroid = Platform.isAndroid;
+  final isIOS = Platform.isIOS;
+
+  return Column(
+    children: [
+      // Solo mostrar los botones sociales si hay al menos uno disponible
+      if (isAndroid || isIOS) ...[
+        // Botón de Google - SOLO en Android
+        if (isAndroid) ...[
+          _buildSocialButton(
+            assetName: 'assets/images/gugel.png',
+            text: l10n.signUpWithGoogle,
+            onPressed: _isLoading ? null : _signUpWithGoogle,
+          ),
+          const SizedBox(height: 12),
+        ],
+        
+        // Botón de Apple - SOLO en iOS
+        if (isIOS) ...[
+          _buildSocialButton(
+            assetName: 'assets/images/appell.png',
+            text: l10n.signUpWithApple,
+            backgroundColor: Colors.blueGrey,
+            textColor: Colors.white,
+            onPressed: _isLoading ? null : _signInWithApple,  
+          ),
+          const SizedBox(height: 12),
+        ],
       ],
-    );
+    ],
+  );
+}
+
+Widget _buildSeparator() {
+  final l10n = AppLocalizations.of(context);
+  final isAndroid = Platform.isAndroid;
+  final isIOS = Platform.isIOS;
+  final hasSocialButtons = isAndroid || isIOS;
+
+  // Solo mostrar el separador si hay botones sociales
+  if (!hasSocialButtons) {
+    return const SizedBox.shrink();
   }
 
-  // ✅ NUEVO: Separador entre botones sociales y formulario
-  Widget _buildSeparator() {
-    final l10n = AppLocalizations.of(context);
-
-    return Row(
-      children: [
-        const Expanded(child: Divider(thickness: 1)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Text(
-            l10n.orRegisterWithEmail, // ✅ Agregar esta clave de localización
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
+  return Column(
+    children: [
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          const Expanded(child: Divider(thickness: 1)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              l10n.orRegisterWithEmail,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-        ),
-        const Expanded(child: Divider(thickness: 1)),
-      ],
-    );
-  }
+          const Expanded(child: Divider(thickness: 1)),
+        ],
+      ),
+      const SizedBox(height: 20),
+    ],
+  );
+}
 
   Widget _buildSocialButton({
     required String assetName,

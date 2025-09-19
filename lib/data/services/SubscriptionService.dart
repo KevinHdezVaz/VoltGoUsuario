@@ -39,6 +39,40 @@ class SubscriptionService {
 }
 
 
+
+static Future<List<UserSubscription>> getSubscriptionHistory() async {
+    try {
+      final token = await TokenStorage.getToken();
+      if (token == null) throw Exception('Token no encontrado');
+
+      // Apunta al nuevo endpoint que creamos en Laravel
+      final url = Uri.parse('${Constants.baseUrl}/user/subscription/history'); 
+      final headers = {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+
+      final response = await http.get(url, headers: headers);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Convierte la lista de JSONs en una lista de objetos UserSubscription
+        final List<dynamic> historyList = data['history'];
+        return historyList.map((item) => UserSubscription.fromJson(item)).toList();
+
+      } else {
+        throw Exception('Error obteniendo el historial de suscripciones');
+      }
+    } catch (e) {
+      print('Error getting subscription history: $e');
+      throw e;
+    }
+  }
+
+
+
+
 // En StripeService
 static Future<Map<String, dynamic>> purchaseSubscription({required String priceId}) async {
   try {

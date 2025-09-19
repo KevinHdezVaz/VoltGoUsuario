@@ -271,9 +271,27 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
     };
   }
 
+// ✅ REEMPLAZA TU FUNCIÓN ORIGINAL CON ESTA VERSIÓN MEJORADA
   void _fitMapToShowBothLocations() {
     if (_mapController == null || _technicianLocation == null) return;
 
+    // Calcula la distancia entre los dos puntos en metros
+    final distance = _calculateDistance(_clientLocation, _technicianLocation!) * 1000;
+
+    // SI ESTÁN MUY CERCA: Centra el mapa en un solo punto con un zoom alto
+    if (distance < 50) { // Menos de 50 metros de distancia
+      _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: _clientLocation,
+            zoom: 17.0, // Un zoom cercano para ver detalles
+          ),
+        ),
+      );
+      return; // Termina la función aquí
+    }
+
+    // SI ESTÁN LEJOS: Crea un recuadro que contenga ambos marcadores
     final southwest = LatLng(
       math.min(_clientLocation.latitude, _technicianLocation!.latitude),
       math.min(_clientLocation.longitude, _technicianLocation!.longitude),
@@ -287,10 +305,11 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
     _mapController!.animateCamera(
       CameraUpdate.newLatLngBounds(
         LatLngBounds(southwest: southwest, northeast: northeast),
-        100.0,
+        80.0, // ✅ Un padding más razonable para que se vean bien
       ),
     );
   }
+  
 
   @override
   void dispose() {
