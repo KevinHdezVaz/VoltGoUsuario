@@ -220,8 +220,8 @@ Future<void> _signInWithApple() async {
       }
     } else {
       // Mostrar error (solo si no fue cancelación)
-      if (result.error != 'El usuario canceló el inicio de sesión') {
-        ScaffoldMessenger.of(context).showSnackBar(
+if (result.error != 'The user cancelled the login') {
+          ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.error ?? l10n.errorOccurred),
             backgroundColor: Colors.red,
@@ -314,7 +314,7 @@ Future<void> _signInWithApple() async {
       
       // Botón de Google - Siempre visible en ambas plataformas
       _buildSocialButton(
-        assetName: 'assets/images/gugel.png',
+         assetName: 'assets/images/gugel.png',
         text: l10n.signInWithGoogle,
         onPressed: _isLoading ? null : _signUpWithGoogle,
       ),
@@ -325,7 +325,8 @@ Future<void> _signInWithApple() async {
         _buildSocialButton(
           assetName: 'assets/images/appell.png',
           text: l10n.signInWithApple,
-          backgroundColor: Colors.black, // Color típico de Apple
+          colorIcon: Colors.white,
+          backgroundColor: Colors.blueGrey, // Color típico de Apple
           textColor: Colors.white,
           onPressed: _isLoading ? null : _signInWithApple,
         ),
@@ -341,11 +342,12 @@ Future<void> _signInWithApple() async {
     required VoidCallback? onPressed,
     Color? backgroundColor,
     Color? textColor,
+    Color? colorIcon,
   }) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        icon: Image.asset(assetName, height: 22, width: 22),
+        icon: Image.asset(assetName, height: 22, width: 22, color: colorIcon,),
         label: Text(
           text,
           style: TextStyle(
@@ -369,51 +371,56 @@ Future<void> _signInWithApple() async {
 
 
   
-  // ✅ NUEVO: Método para Google Sign Up con navegación a CompleteProfile
-  Future<void> _signUpWithGoogle() async {
-    final l10n = AppLocalizations.of(context);
+ Future<void> _signUpWithGoogle() async {
+  final l10n = AppLocalizations.of(context);
+  
+  if (_isLoading) return;
+
+  setState(() => _isLoading = true);
+  _animationController.repeat();
+
+  try {
+    developer.log('Iniciando Google Sign Up...');
     
-    if (_isLoading) return;
-
-    setState(() => _isLoading = true);
-    _animationController.repeat();
-
-    try {
-      developer.log('Iniciando Google Sign Up...');
-      
-      final result = await GoogleAuthService.signInWithGoogle();
-      
+    final result = await GoogleAuthService.signInWithGoogle();
+    
+    if (!mounted) {
       _animationController.stop();
-      if (!mounted) return;
+      return;
+    }
+    
+    _animationController.stop();
 
-      if (result.success && result.user != null && result.token != null) {
-        developer.log('Google Sign Up exitoso');
+    if (result.success && result.user != null && result.token != null) {
+      developer.log('Google Sign Up exitoso');
+      
+      // Guardar el token inmediatamente
+      await TokenStorage.saveToken(result.token!);
+      
+      // Crear modelo de usuario desde la respuesta
+      final userMap = result.user!;
+      final userModel = UserModel.fromJson(userMap);
+      
+      // Verificar si necesita completar perfil
+      final phone = userMap['phone'];
+      
+      if (phone == null || phone.toString().trim().isEmpty) {
+        developer.log('Usuario necesita completar perfil - redirigiendo a CompleteProfileScreen');
         
-        // Crear modelo de usuario desde la respuesta
-        final userMap = result.user!;
-        final userModel = UserModel.fromJson(userMap);
-        
-        // ✅ VERIFICAR SI NECESITA COMPLETAR PERFIL
-        final phone = userMap['phone'];
-        
-        if (phone == null || phone.toString().trim().isEmpty) {
-          developer.log('Usuario necesita completar perfil - redirigiendo a CompleteProfileScreen');
-          
-          // Usuario necesita completar su perfil (agregar teléfono)
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CompleteProfileScreen(
-                user: userModel,
-                token: result.token!,
-              ),
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CompleteProfileScreen(
+              user: userModel,
+              token: result.token!,
             ),
-            (route) => false,
-          );
-        } else {
-          developer.log('Usuario ya tiene perfil completo - navegando normalmente');
-          
-          // Usuario ya tiene toda la información necesaria
+          ),
+          (route) => false,
+        );
+      } else {
+        developer.log('Usuario ya tiene perfil completo - navegando normalmente');
+        
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(l10n.welcomeSuccessfulRegistration),
@@ -423,20 +430,34 @@ Future<void> _signInWithApple() async {
           
           _navigateAfterAuth(userModel);
         }
-      } else {
-        // Error en Google Sign Up
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.error ?? l10n.errorOccurred),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
-    } catch (e) {
+    } else {
+      // Error en Google Sign Up - pero verificar que no sea cancelación
+      if (result.error != null && 
+          !result.error!.toLowerCase().contains('cancel') &&
+          !result.error!.toLowerCase().contains('user_cancelled')) {
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.error ?? l10n.errorOccurred),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  } catch (e) {
+    developer.log('Excepción en Google Sign Up: $e');
+    
+    if (mounted) {
       _animationController.stop();
-      developer.log('Excepción en Google Sign Up: $e');
       
-      if (mounted) {
+      // No mostrar error si es cancelación del usuario
+      final errorMessage = e.toString().toLowerCase();
+      if (!errorMessage.contains('cancel') && 
+          !errorMessage.contains('user_cancelled')) {
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${l10n.errorOccurred}: ${e.toString()}'),
@@ -444,10 +465,13 @@ Future<void> _signInWithApple() async {
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    }
+  } finally {
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
 
 
   Widget _buildBackground(BuildContext context) {

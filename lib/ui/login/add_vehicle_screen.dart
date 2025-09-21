@@ -38,16 +38,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
   final _connectorTypeController = TextEditingController();
 
   // Listas para los dropdowns y selecciones
-  final List<String> _connectorTypes = [
-    'Type 1 (J1772)',
-    'Type 2 (Mennekes)',
-    'CCS Combo 1',
-    'CCS Combo 2',
-    'CHAdeMO',
-    'Tesla Supercharger',
-    'GB/T',
-  ];
-
+final List<String> _connectorTypes = [
+  'CCS1',
+  'NACS - Tesla',
+  'CHAdeMO',
+];
   final List<Map<String, dynamic>> _popularBrands = [
     {'name': 'Tesla', 'icon': '⚡'},
     {'name': 'Nissan', 'icon': '🚗'},
@@ -818,6 +813,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          
           inputFormatters: inputFormatters,
           textCapitalization: textCapitalization,
           onChanged: (value) {
@@ -826,7 +822,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen>
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, color: AppColors.primary),
-            filled: true,
+         hintStyle: TextStyle(
+    color: Colors.grey, // 🔹 Color gris para el hint
+   ),   filled: true,
             fillColor: AppColors.background,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),

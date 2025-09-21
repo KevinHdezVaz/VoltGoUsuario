@@ -394,7 +394,7 @@ class TechnicianProfile {
 String get vehicleDescription {
   // Si no hay detalles del vehículo, retornar mensaje por defecto
   if (vehicleDetails == null || vehicleDetails!.isEmpty) {
-    return 'Vehículo no especificado';
+    return '';
   }
 
   // Lista para almacenar las partes de la descripción
@@ -410,7 +410,7 @@ String get vehicleDescription {
   // Retornar la descripción unida o mensaje por defecto si no hay partes
   return parts.isNotEmpty 
       ? parts.join(' ') 
-      : 'Vehículo no especificado';
+      : '';
 }
 }
 

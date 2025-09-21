@@ -24,6 +24,21 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	
+	<!-- ✅ AGREGAR ESTA CONFIGURACIÓN PARA GOOGLE SIGN IN -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.voltgo.myvoltgo</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.535960810827-jtgkcjhv7cr6dqhk3644r8eskrjefbtd</string>
+			</array>
+		</dict>
+	</array>
+	<!-- ✅ FIN DE CONFIGURACIÓN GOOGLE SIGN IN -->
+	
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>

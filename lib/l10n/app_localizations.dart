@@ -17,7 +17,7 @@ class AppLocalizations {
 
   static final Map<String, Map<String, String>> _localizedValues = {
     'en': {
-      'appTitle': 'VoltGo',
+      'appTitle': 'MyVoltGo',
       'searchingTechnician': 'Searching for technician',
       'technicianArriving': 'Technician arriving in',
       'minutes': 'minutes',
@@ -570,7 +570,7 @@ class AppLocalizations {
       'onboardingSubtitle3':
           'Infórmate sobre promociones, eventos y noticias relevantes de la app.',
 
-      'appTitle': 'VoltGo',
+      'appTitle': 'MyVoltGo',
       'searchingTechnician': 'Buscando técnico',
       'technicianArriving': 'Técnico llegando en',
       'minutes': 'minutos',

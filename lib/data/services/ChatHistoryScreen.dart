@@ -131,7 +131,7 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
-          'Mis Chats',
+          'My Chats',
           style: GoogleFonts.inter(
             fontWeight: FontWeight.w700,
             fontSize: 22,
@@ -215,7 +215,7 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            'Cargando chats...',
+            'Loading chats...',
             style: GoogleFonts.inter(
               color: AppColors.textSecondary,
               fontSize: 14,
@@ -307,7 +307,7 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
             ),
             const SizedBox(height: 24),
             Text(
-              'No hay chats aún',
+              'No chats yet',
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -316,7 +316,7 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              'Los chats con los técnicos aparecerán aquí una vez que tengas servicios activos.',
+              'Chats with technicians will appear here once you have active services.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 14,
@@ -325,24 +325,7 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
               ),
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              icon: Icon(Icons.electric_bolt, size: 20),
-              label: Text('Solicitar Servicio'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
+             
           ],
         ),
       ),
@@ -354,6 +337,7 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Card(
+        color: Colors.white,
         elevation: unreadCount > 0 ? 4 : 2, // ✅ Mayor elevación si hay no leídos
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -423,7 +407,7 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
                       Text(
                         chatItem.lastMessageText.isNotEmpty 
                             ? chatItem.lastMessageText 
-                            : 'Sin mensajes',
+                            : 'No messages yet',
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           color: unreadCount > 0 
@@ -445,7 +429,7 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Servicio #${chatItem.serviceId}',
+                            'Service #${chatItem.serviceId}',
                             style: GoogleFonts.inter(
                               fontSize: 11,
                               color: AppColors.textSecondary,
@@ -527,25 +511,24 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen>
         return AppColors.textSecondary;
     }
   }
-
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'pending':
-        return 'Pendiente';
-      case 'accepted':
-        return 'Aceptado';
-      case 'en_route':
-        return 'En camino';
-      case 'on_site':
-        return 'En sitio';
-      case 'charging':
-        return 'Cargando';
-      case 'completed':
-        return 'Completado';
-      case 'cancelled':
-        return 'Cancelado';
-      default:
-        return status;
-    }
+String _getStatusText(String status) {
+  switch (status) {
+    case 'pending':
+      return 'Pending';
+    case 'accepted':
+      return 'Accepted';
+    case 'en_route':
+      return 'On the way';
+    case 'on_site':
+      return 'On site';
+    case 'charging':
+      return 'Charging';
+    case 'completed':
+      return 'Completed';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return status;
   }
+}
 }

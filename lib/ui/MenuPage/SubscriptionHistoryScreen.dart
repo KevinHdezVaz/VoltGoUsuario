@@ -1,12 +1,9 @@
 import 'package:Voltgo_User/ui/MenuPage/SubscriptionDetailsScreen.dart';
 import 'package:flutter/material.dart';
-
- import 'package:google_fonts/google_fonts.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:Voltgo_User/data/models/UserSubscription.dart';
 import 'package:Voltgo_User/data/services/SubscriptionService.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
-// Importa la futura pantalla de detalles (la crearemos en el siguiente paso)
-// import 'SubscriptionDetailsScreen.dart'; 
 
 class SubscriptionHistoryScreen extends StatefulWidget {
   const SubscriptionHistoryScreen({Key? key}) : super(key: key);
@@ -32,9 +29,22 @@ class _SubscriptionHistoryScreenState extends State<SubscriptionHistoryScreen> {
     });
   }
 
-  // Helper para formatear la fecha
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+  // ✅ CORREGIDO: Helper para formatear la fecha (maneja nulls)
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'N/A';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  // ✅ NUEVO: Helper para obtener la fecha de compra más apropiada
+  String _getPurchaseDate(UserSubscription sub) {
+    // Prioridad: purchasedAt > createdAt > 'N/A'
+    if (sub.purchasedAt != null) {
+      return _formatDate(sub.purchasedAt);
+    } else if (sub.createdAt != null) {
+      return _formatDate(sub.createdAt);
+    } else {
+      return 'N/A';
+    }
   }
 
   @override
@@ -102,37 +112,56 @@ class _SubscriptionHistoryScreenState extends State<SubscriptionHistoryScreen> {
     );
   }
 
-   Widget _buildHistoryItemCard(UserSubscription sub) {
-    // Lógica para determinar el texto y color del estado
+  // ✅ ACTUALIZADO: Card con fondo blanco y mejor lógica de estado
+  Widget _buildHistoryItemCard(UserSubscription sub) {
+    // Lógica mejorada para determinar el texto y color del estado
     String statusText;
     Color statusColor;
     IconData statusIcon;
 
     if (sub.isActive) {
-      statusText = 'Active';
-      statusColor = AppColors.success;
-      statusIcon = Icons.check_circle;
-    } else if (sub.planType == 'one_time' && (sub.remainingServices ?? 0) <= 0) {
-      statusText = 'Completed';
-      statusColor = AppColors.brandBlue;
-      statusIcon = Icons.task_alt;
+      // Suscripción activa
+      if (sub.planType == 'monthly') {
+        if (sub.remainingServices != null && sub.remainingServices! <= 0) {
+          statusText = 'Active (No services left)';
+          statusColor = Colors.orange;
+          statusIcon = Icons.warning_outlined;
+        } else {
+          statusText = 'Active';
+          statusColor = AppColors.success;
+          statusIcon = Icons.check_circle;
+        }
+      } else {
+        // Plan único activo
+        statusText = 'Active';
+        statusColor = AppColors.success;
+        statusIcon = Icons.check_circle;
+      }
     } else {
-      statusText = 'Expired / Inactive';
-      statusColor = AppColors.textSecondary;
-      statusIcon = Icons.cancel;
+      // Suscripción inactiva
+      if (sub.planType == 'one_time' && (sub.remainingServices ?? 0) <= 0) {
+        statusText = 'Services Used';
+        statusColor = AppColors.brandBlue;
+        statusIcon = Icons.task_alt;
+      } else if (sub.planType == 'monthly') {
+        statusText = 'Expired';
+        statusColor = AppColors.textSecondary;
+        statusIcon = Icons.schedule_outlined;
+      } else {
+        statusText = 'Inactive';
+        statusColor = AppColors.textSecondary;
+        statusIcon = Icons.cancel;
+      }
     }
 
     return Card(
       elevation: 3,
+      color: Colors.white, // ✅ AGREGADO: Fondo blanco
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        // ✅ THIS IS THE CORRECTED PART ✅
         onTap: () {
-          // This code will now execute when you tap the card.
-          // It creates the details screen and passes the specific
-          // subscription ('sub') that was tapped.
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -144,12 +173,14 @@ class _SubscriptionHistoryScreenState extends State<SubscriptionHistoryScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
-              // Icono principal del plan
+              // ✅ MEJORADO: Icono principal del plan con mejor diferenciación
               CircleAvatar(
                 radius: 24,
                 backgroundColor: AppColors.primary.withOpacity(0.1),
                 child: Icon(
-                  sub.planType == 'monthly' ? Icons.autorenew : Icons.confirmation_number,
+                  sub.planType == 'monthly' 
+                    ? Icons.autorenew 
+                    : Icons.confirmation_number,
                   color: AppColors.primary,
                   size: 28,
                 ),
@@ -160,6 +191,7 @@ class _SubscriptionHistoryScreenState extends State<SubscriptionHistoryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Nombre del plan
                     Text(
                       sub.planName ?? 'Subscription',
                       style: GoogleFonts.inter(
@@ -171,12 +203,63 @@ class _SubscriptionHistoryScreenState extends State<SubscriptionHistoryScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
+                    
+                    // ✅ CORREGIDO: Fecha de compra con manejo de nulls
                     Text(
-                      // We use the 'createdAt' field from your model
-                      'Purchased: ${_formatDate(sub.createdAt)}',
+                      'Purchased: ${_getPurchaseDate(sub)}',
                       style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 4),
+                    
+                    // ✅ NUEVO: Mostrar información adicional útil
+                    Row(
+                      children: [
+                        // Precio
+                        Text(
+                          '\$${sub.amount.toStringAsFixed(2)} ${sub.currency.toUpperCase()}',
+                          style: GoogleFonts.inter(
+                            fontSize: 12, 
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Separador
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.textSecondary.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Servicios restantes (si aplica)
+                        if (sub.remainingServices != null) ...[
+                          Text(
+                            '${sub.remainingServices} services left',
+                            style: GoogleFonts.inter(
+                              fontSize: 12, 
+                              color: sub.remainingServices! > 0 
+                                ? AppColors.success 
+                                : AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ] else if (sub.planType == 'monthly') ...[
+                          Text(
+                            'Unlimited',
+                            style: GoogleFonts.inter(
+                              fontSize: 12, 
+                              color: AppColors.brandBlue,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    
                     // Badge de estado
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -203,14 +286,21 @@ class _SubscriptionHistoryScreenState extends State<SubscriptionHistoryScreen> {
                   ],
                 ),
               ),
-              // Flecha para indicar que es clickeable
-              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+              // Precio y flecha
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Flecha para indicar que es clickeable
+                  const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                ],
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
   // --- WIDGETS DE ESTADO (VACÍO Y ERROR) ---
 
   Widget _buildEmptyState() {
@@ -220,16 +310,28 @@ class _SubscriptionHistoryScreenState extends State<SubscriptionHistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history_toggle_off, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
+            Icon(
+              Icons.history_toggle_off, 
+              size: 64, 
+              color: AppColors.textSecondary.withOpacity(0.5)
+            ),
             const SizedBox(height: 24),
             Text(
               'No Subscription History',
-              style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold),
+              style: GoogleFonts.inter(
+                fontSize: 20, 
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Your past and current subscriptions will appear here.',
               textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -248,15 +350,33 @@ class _SubscriptionHistoryScreenState extends State<SubscriptionHistoryScreen> {
             const SizedBox(height: 24),
             Text(
               'Something Went Wrong',
-              style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold),
+              style: GoogleFonts.inter(
+                fontSize: 20, 
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
             ),
             const SizedBox(height: 8),
-            Text(error, textAlign: TextAlign.center),
+            Text(
+              error, 
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+            ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _reloadData,
               icon: const Icon(Icons.refresh),
               label: const Text('Try Again'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             )
           ],
         ),

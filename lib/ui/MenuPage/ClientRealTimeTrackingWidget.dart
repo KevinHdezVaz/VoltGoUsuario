@@ -252,24 +252,34 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
     return earthRadius * c;
   }
 
-  void _updateMarkers() {
-    final l10n = AppLocalizations.of(context);
-    _markers = {
-      Marker(
-        markerId: const MarkerId('client'),
-        position: _clientLocation,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        infoWindow: InfoWindow(title: l10n.yourLocation),
+void _updateMarkers() {
+  final l10n = AppLocalizations.of(context);
+  _markers = {
+    Marker(
+      markerId: const MarkerId('client'),
+      position: _clientLocation,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      infoWindow: InfoWindow(
+        title: "My Location",
+        snippet: "Service localicated here",
       ),
-      if (_technicianLocation != null)
-        Marker(
-          markerId: const MarkerId('technician'),
-          position: _technicianLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-          infoWindow: InfoWindow(title: _technicianName),
+    ),
+    if (_technicianLocation != null)
+      Marker(
+        markerId: const MarkerId('technician'),
+        position: _technicianLocation!,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        infoWindow: InfoWindow(
+          title: _technicianName,
+          snippet: "Technician's current location",
         ),
-    };
-  }
+      ),
+  };
+  
+  // El InfoWindow se mostrará cuando el usuario toque el marcador
+  // No necesitamos forzar su visualización automáticamente
+}
+
 
 // ✅ REEMPLAZA TU FUNCIÓN ORIGINAL CON ESTA VERSIÓN MEJORADA
   void _fitMapToShowBothLocations() {
@@ -335,7 +345,7 @@ class _RealTimeTrackingScreenState extends State<RealTimeTrackingScreen>
             },
             initialCameraPosition: CameraPosition(
               target: _clientLocation,
-              zoom: 10.0,
+              zoom: 17.0,
             ),
             markers: _markers,
             myLocationEnabled: false,

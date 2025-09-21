@@ -356,8 +356,8 @@ Future<void> _signInWithApple() async {
       }
     } else {
       // Mostrar error (solo si no fue cancelación)
-      if (result.error != 'El usuario canceló el inicio de sesión') {
-        ScaffoldMessenger.of(context).showSnackBar(
+if (result.error != 'The user cancelled the login') {
+          ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.error ?? l10n.errorOccurred),
             backgroundColor: Colors.red,
@@ -420,26 +420,24 @@ Widget _buildSocialLogins() {
 
   return Column(
     children: [
-      // Solo mostrar los botones sociales si hay al menos uno disponible
       if (isAndroid || isIOS) ...[
-        // Botón de Google - SOLO en Android
-        if (isAndroid) ...[
-          _buildSocialButton(
-            assetName: 'assets/images/gugel.png',
-            text: l10n.signUpWithGoogle,
-            onPressed: _isLoading ? null : _signUpWithGoogle,
-          ),
-          const SizedBox(height: 12),
-        ],
-        
-        // Botón de Apple - SOLO en iOS
+        // 🔹 Mostrar siempre el botón de Google (Android + iOS)
+        _buildSocialButton(
+          assetName: 'assets/images/gugel.png',
+          text: l10n.signUpWithGoogle,
+          onPressed: _isLoading ? null : _signUpWithGoogle,
+        ),
+        const SizedBox(height: 12),
+
+        // 🔹 Mostrar Apple Sign In solo en iOS
         if (isIOS) ...[
           _buildSocialButton(
             assetName: 'assets/images/appell.png',
             text: l10n.signUpWithApple,
+            Iconcolor: Colors.white,
             backgroundColor: Colors.blueGrey,
             textColor: Colors.white,
-            onPressed: _isLoading ? null : _signInWithApple,  
+            onPressed: _isLoading ? null : _signInWithApple,
           ),
           const SizedBox(height: 12),
         ],
@@ -489,11 +487,12 @@ Widget _buildSeparator() {
     required VoidCallback? onPressed,
     Color? backgroundColor,
     Color? textColor,
+    Color? Iconcolor
   }) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        icon: Image.asset(assetName, height: 22, width: 22),
+        icon: Image.asset(assetName, height: 22, width: 22, color: Iconcolor,),
         label: Text(
           text,
           style: TextStyle(

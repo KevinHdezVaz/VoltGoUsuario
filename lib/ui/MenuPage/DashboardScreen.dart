@@ -1540,174 +1540,9 @@ Future<void> _cancelOldServiceAndRefresh(int serviceId) async {
   
   return widgets;
 }
-
  
- String _buildVehicleInfo(TechnicianProfile? profile) {
-  if (profile?.vehicleDetails == null || profile!.vehicleDetails!.isEmpty) {
-    return 'Vehículo de servicio';
-  }
 
-  final parts = <String>[];
 
-  // Agregar color con etiqueta si existe
-  if (profile.vehicleColor?.isNotEmpty == true) {
-    parts.add('Color: ${profile.vehicleColor!}');
-  }
-
-  // Combinar marca y modelo con etiqueta si ambos existen
-  if (profile.vehicleMake?.isNotEmpty == true && profile.vehicleModel?.isNotEmpty == true) {
-    parts.add('Brand and Model: ${profile.vehicleMake!} ${profile.vehicleModel!}');
-  } else if (profile.vehicleMake?.isNotEmpty == true) {
-    parts.add('Brand and Model: ${profile.vehicleMake!}');
-  } else if (profile.vehicleModel?.isNotEmpty == true) {
-    parts.add('Brand and Model: ${profile.vehicleModel!}');
-  }
-
-  // Agregar la placa con etiqueta si existe
-  if (profile.vehiclePlate?.isNotEmpty == true) {
-    parts.add('Plate: ${profile.vehiclePlate!}');
-  }
-
-  return parts.isNotEmpty ? parts.join(' - ') : 'Vehículo de servicio';
-}
-
-Widget _buildVehicleInfoContent() {
-  final children = <Widget>[];
-
-  // Agregar color con etiqueta a la izquierda y valor a la derecha
-  if (_vehicleColor?.isNotEmpty == true) {
-    children.add(
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.color_lens, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Color:',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          Text(
-            _vehicleColor!,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Combinar marca y modelo con etiqueta a la izquierda y valor a la derecha
-  if (_vehicleMake?.isNotEmpty == true || _vehicleModel?.isNotEmpty == true) {
-    final brandModel = <String>[];
-    if (_vehicleMake?.isNotEmpty == true) {
-      brandModel.add(_vehicleMake!);
-    }
-    if (_vehicleModel?.isNotEmpty == true) {
-      brandModel.add(_vehicleModel!);
-    }
-    children.add(
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.directions_car, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Brand and Model',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          Text(
-            brandModel.join(' '),
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Agregar la placa con etiqueta a la izquierda y valor a la derecha
-  if (_vehiclePlate?.isNotEmpty == true) {
-    children.add(
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.confirmation_number, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Plate:',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          Text(
-            _vehiclePlate!,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Si no hay información, mostrar mensaje por defecto
-  if (children.isEmpty) {
-    children.add(
-      Text(
-        'Vehículo de servicio',
-        style: GoogleFonts.inter(
-          fontSize: 14,
-          color: AppColors.textSecondary,
-        ),
-      ),
-    );
-  } else {
-    // Agregar espaciado entre filas, excepto antes de la primera
-    final spacedChildren = <Widget>[];
-    for (var i = 0; i < children.length; i++) {
-      if (i > 0) {
-        spacedChildren.add(const SizedBox(height: 12));
-      }
-      spacedChildren.add(children[i]);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: spacedChildren,
-    );
-  }
-
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: children,
-  );
-}
 Widget _buildVehicleInfoRow(String label, String value) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 8),
@@ -2954,7 +2789,9 @@ Future<void> _purchaseSelectedPlan(StripePlan plan) async {
     setState(() => _isLoading = false);
   }
 }
-Future<bool?> _showServiceConfirmationDialog({
+
+
+ Future<bool?> _showServiceConfirmationDialog({
   required Map<String, dynamic> estimation,
   required UserSubscription userPlan,
 }) async {
@@ -3001,20 +2838,59 @@ Future<bool?> _showServiceConfirmationDialog({
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        AppLocalizations.of(context).activePlan(userPlan.planName!),
+                        AppLocalizations.of(context).activePlan(userPlan.planName ?? 'Plan'),
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.bold,
                           color: Colors.green.shade700,
                         ),
                       ),
-                      if (userPlan.planType == 'one_time' && userPlan.remainingServices != null)
-                        Text(
-                          AppLocalizations.of(context).remainingServices(userPlan.remainingServices.toString()),
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: Colors.green.shade600,
+                      SizedBox(height: 4),
+                      
+                      // Mostrar información de servicios según el tipo de plan
+                      if (userPlan.planType == 'one_time') ...[
+                        if (userPlan.remainingServices != null && userPlan.remainingServices! > 0)
+                          Text(
+                            AppLocalizations.of(context).remainingServices((userPlan.remainingServices ?? 0).toString()),
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.green.shade600,
+                            ),
+                          )
+                        else
+                          Text(
+                            'Service ready to use',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.green.shade600,
+                            ),
                           ),
-                        ),
+                      ] else if (userPlan.planType == 'monthly') ...[
+                        if (userPlan.remainingServices != null) ...[
+                          Text(
+                            '${userPlan.remainingServices} services remaining this month',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                          Text(
+                            'Resets: ${_getNextResetDate(userPlan)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: Colors.green.shade500,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ] else ...[
+                          Text(
+                            'Unlimited services this month',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                        ],
+                      ],
                     ],
                   ),
                 ),
@@ -3022,6 +2898,7 @@ Future<bool?> _showServiceConfirmationDialog({
             ),
           ),
           SizedBox(height: 16),
+          
           // Detalles del servicio
           Container(
             padding: EdgeInsets.all(12),
@@ -3051,6 +2928,36 @@ Future<bool?> _showServiceConfirmationDialog({
               ],
             ),
           ),
+          
+          // Advertencia si quedan pocos servicios
+          if (_shouldShowServiceWarning(userPlan)) ...[
+            SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber, color: Colors.orange, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _getServiceWarningText(userPlan),
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: Colors.orange.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
       actions: [
@@ -3073,6 +2980,62 @@ Future<bool?> _showServiceConfirmationDialog({
     ),
   );
 }
+
+// Método helper para obtener la próxima fecha de reset
+String _getNextResetDate(UserSubscription subscription) {
+  if (subscription.planType != 'monthly' || subscription.purchasedAt == null) {
+    return 'N/A';
+  }
+
+  final purchaseDate = subscription.purchasedAt!;
+  final now = DateTime.now();
+  
+  // Calcular cuántos meses han pasado
+  int monthsPassed = ((now.year - purchaseDate.year) * 12) + (now.month - purchaseDate.month);
+  
+  // Si aún no ha pasado el día de compra este mes, usar el mes actual
+  if (now.day < purchaseDate.day) {
+    monthsPassed--;
+  }
+  
+  // Próxima fecha de reset
+  DateTime nextReset = DateTime(
+    purchaseDate.year,
+    purchaseDate.month + monthsPassed + 1,
+    purchaseDate.day,
+  );
+  
+  return '${nextReset.day}/${nextReset.month}/${nextReset.year}';
+}
+
+// Método helper para determinar si mostrar advertencia
+bool _shouldShowServiceWarning(UserSubscription subscription) {
+  if (subscription.remainingServices == null) return false;
+  
+  if (subscription.planType == 'one_time') {
+    return subscription.remainingServices == 1; // Último servicio
+  } else if (subscription.planType == 'monthly') {
+    return subscription.remainingServices! <= 1; // 1 o menos servicios restantes este mes
+  }
+  
+  return false;
+}
+
+// Método helper para obtener el texto de advertencia
+String _getServiceWarningText(UserSubscription subscription) {
+  if (subscription.planType == 'one_time') {
+    return 'This is your last available service from this plan.';
+  } else if (subscription.planType == 'monthly') {
+    if (subscription.remainingServices == 1) {
+      return 'Only 1 service remaining this month.';
+    } else if (subscription.remainingServices == 0) {
+      return 'No services remaining this month. Will reset on ${_getNextResetDate(subscription)}.';
+    }
+  }
+  
+  return '';
+}
+
 
 // ✅ NUEVO: Diálogo cuando el plan expiró/se agotó
 Future<void> _showSubscriptionExpiredDialog(UserSubscription expiredPlan) async {
@@ -3695,6 +3658,7 @@ void _cancelService() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title:
             Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
@@ -5238,7 +5202,7 @@ void _showRatingDialog() {
                     Icon(Icons.warning_amber, color: Colors.orange, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Servicio ha excedido el tiempo límite',
+                      '"Service has exceeded the time limit',
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w600,
                         color: Colors.orange.shade700,
@@ -5249,7 +5213,7 @@ void _showRatingDialog() {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'El servicio lleva ${minutesElapsed} minutos activo. Puedes cancelarlo sin cargos.',
+                  'EThe service has been active for ${minutesElapsed} minutes. You can cancel it free of charge."',
                   style: GoogleFonts.inter(fontSize: 13),
                 ),
               ],
@@ -5260,7 +5224,7 @@ void _showRatingDialog() {
             onPressed: () => _showForceExpireConfirmation(),
             icon: Icon(Icons.timer_off, color: Colors.white),
             label: Text(
-              'Cancelar Servicio Expirado',
+              'Cancel Expired Service',
               style: GoogleFonts.inter(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
@@ -5965,168 +5929,115 @@ Widget _buildIdlePanel() {
       right: 16,
       bottom: 150,
     ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ✅ BANNER INFORMATIVO si hay servicio activo (sin abrir panel)
-        if (_hasActiveService && _existingRequest != null) ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.orange.withOpacity(0.15),
-                  Colors.orange.withOpacity(0.05)
+    child: FutureBuilder<UserSubscription?>(
+      future: SubscriptionService.getCurrentSubscription(),
+      builder: (context, snapshot) {
+        final currentSubscription = snapshot.data;
+        final bool hasServices = _hasAvailableServices(currentSubscription);
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Banner de servicio activo (sin cambios)
+            if (_hasActiveService && _existingRequest != null) ...[
+              // Tu código del banner existente...
+            ],
+
+            // Botón principal adaptativo
+            Container(
+              width: double.infinity,
+              height: 120,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: hasServices
+                      ? [AppColors.primary, AppColors.brandBlue]
+                      : [AppColors.primary,  AppColors.brandBlue],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: (hasServices ? AppColors.primary : Colors.green)
+                        .withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
                 ],
               ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.orange.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(Icons.electric_bolt, color: Colors.orange, size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tienes un servicio activo',
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange.shade800,
-                              fontSize: 15,
-                            ),
-                          ),
-                          Text(
-                            '${_getServiceStatusText(_existingRequest!.status)} • ID: ${_existingRequest!.id}',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              color: Colors.orange.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.arrow_forward_ios, 
-                         color: Colors.orange.shade600, size: 16),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Toca el botón para ver los detalles y progreso',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: Colors.orange.shade600,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-
-        // ✅ BOTÓN PRINCIPAL MODIFICADO
-        Container(
-          width: double.infinity,
-          height: 120,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: _hasActiveService
-                  ? [Colors.orange, Colors.orange.withOpacity(0.8)]
-                  : [AppColors.primary, AppColors.brandBlue],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: (_hasActiveService ? Colors.orange : AppColors.primary)
-                    .withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                // ✅ LÓGICA SEPARADA AQUÍ
-                if (_hasActiveService && _existingRequest != null) {
-                  // Solo mostrar el servicio existente (SIN crear nuevo)
-                  print('👁️ Mostrando servicio activo existente');
-                  _showExistingActiveService(_existingRequest!);
-                } else {
-                  // Crear nuevo servicio (con todos los diálogos)
-                  print('🆕 Creando nuevo servicio');
-                  _requestService();
-                }
-              },
-              borderRadius: BorderRadius.circular(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    if (hasServices) {
+                      _requestService(); // Tu método existente
+                    } else {
+                      _showPlanSelectionDialog(); // Tu método existente
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
                       _hasActiveService ? Icons.visibility : Icons.electric_bolt,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
+                          color: Colors.white,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
                     _hasActiveService 
                         ? 'View Current Service'
                         : l10n.requestCharge,
-                    style: GoogleFonts.inter(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  Text(
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
                     _hasActiveService
                         ? 'Status: ${_getServiceStatusText(_existingRequest!.status)}'
                         : l10n.tapToFindTechnician,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                    textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     ),
   );
+}
+
+// Método simple para verificar si tiene servicios disponibles
+bool _hasAvailableServices(UserSubscription? subscription) {
+  if (subscription == null || !subscription.isActive) {
+    return false;
+  }
+
+  if (subscription.planType == 'one_time') {
+    return (subscription.remainingServices ?? 0) > 0;
+  } else if (subscription.planType == 'monthly') {
+    if (subscription.remainingServices == null) return true; // Ilimitado
+    return subscription.remainingServices! > 0;
+  }
+
+  return false;
 }
 
   Widget _buildBottomPanel() {
@@ -6448,38 +6359,9 @@ Widget _buildIdlePanel() {
                 child: Column(
                   children: [
                   
-                    // ✅ Mostrar información diferente según el estado
-                    if (!isTechnicianOnSite) ...[
+                     if (!isTechnicianOnSite) ...[
                       
-                       const SizedBox(height: 20),
-Card(
-  color: Colors.white.withOpacity(0.9),
-  elevation: 2,
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(12),
-  ),
-  child: Padding(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Título
-        Text(
-          "The technician's car",
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 12),
-        
-        // Información del vehículo en dos columnas
-        _buildVehicleInfoContent(),
-      ],
-    ),
-  ),
-),
+  
                     ] else ...[
                       const SizedBox(height: 12),
                       Row(

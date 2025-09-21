@@ -2,7 +2,7 @@ import 'package:Voltgo_User/data/services/RatingService.dart';
 import 'package:Voltgo_User/l10n/app_localizations.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Para HapticFeedback
+import 'package:flutter/services.dart'; 
 import 'package:google_fonts/google_fonts.dart'; 
 
 class RatingDialog extends StatefulWidget {
