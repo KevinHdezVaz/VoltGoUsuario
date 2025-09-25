@@ -25,7 +25,6 @@
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	
-	<!-- ✅ AGREGAR ESTA CONFIGURACIÓN PARA GOOGLE SIGN IN -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -37,7 +36,6 @@
 			</array>
 		</dict>
 	</array>
-	<!-- ✅ FIN DE CONFIGURACIÓN GOOGLE SIGN IN -->
 	
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
@@ -56,24 +54,36 @@
 	<array>
 		<string>_dartobservatory._tcp</string>
 	</array>
+	
+	<!-- ✅ PERMISOS EN INGLÉS -->
 	<key>NSCameraUsageDescription</key>
-	<string>Necesitamos acceso a la cámara para tomar fotos</string>
+	<string>We need camera access to take photos for your profile</string>
+	
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Esta app necesita acceso a la red local para conectar las herramientas de desarrollo de Flutter (debugger, hot reload).</string>
+	<string>This app needs local network access to connect Flutter development tools (debugger, hot reload)</string>
+	
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Necesitamos tu ubicación para mostrarte en el mapa y centrar las funciones de navegación.</string>
+	<string>We need your location to show you on the map and center navigation features</string>
+	
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Necesitamos tu ubicación para mostrarte en el mapa y centrar las funciones de navegación.</string>
+	<string>We need your location to show you on the map and center navigation features</string>
+	
 	<key>NSLocationDefaultAccuracyReduced</key>
 	<false/>
+	
 	<key>NSLocationUsageDescription</key>
-	<string>Necesitamos tu ubicación para mostrarte en el mapa y centrar las funciones de navegación</string>
+	<string>We need your location to show you on the map and center navigation features</string>
+	
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Necesitamos tu ubicación para mostrarte en el mapa y centrar las funciones de navegación.</string>
+	<string>We need your location to show you on the map and center navigation features</string>
+	
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Necesitamos acceso a tus fotos para seleccionar imágenes para el perfil.</string>
+	<string>We need photo access to select images for your profile</string>
+	
 	<key>NSUserNotificationsUsageDescription</key>
-	<string>Te enviaremos notificaciones sobre el estado de tus servicios, mensajes de los técnicos y actualizaciones importantes.</string>
+	<string>We'll send you notifications about your services, technician messages and important updates</string>
+	<!-- ✅ FIN PERMISOS EN INGLÉS -->
+	
 	<key>OneSignal_APPID</key>
 	<string>3708fbd6-1d48-48aa-94dc-3fa8cbdcdd16</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

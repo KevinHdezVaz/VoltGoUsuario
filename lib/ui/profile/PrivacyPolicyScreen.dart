@@ -1,9 +1,31 @@
 import 'package:Voltgo_User/l10n/app_localizations.dart';
 import 'package:Voltgo_User/ui/color/app_colors.dart';
-import 'package:flutter/material.dart'; 
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({Key? key}) : super(key: key);
+
+  // Function to send email
+  Future<void> _sendEmail(String email, String subject) async {
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: email,
+      queryParameters: {
+        'subject': subject,
+      },
+    );
+
+    try {
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri);
+      } else {
+        throw 'Could not launch email client';
+      }
+    } catch (e) {
+      print('Error launching email: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -187,6 +209,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             
             // Contact Information
             Card(
+              color: Colors.white,
               elevation: 4,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -218,14 +241,36 @@ class PrivacyPolicyScreen extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    
+                    // Privacy Email Button
+                    _buildEmailButton(
+                      email: 'privacy@voltgo.us',
+                      subject: 'Consulta sobre Política de Privacidad - VoltGo',
+                      icon: Icons.privacy_tip,
+                      label: 'Privacy',
+                      context: context,
+                    ),
+                    
                     const SizedBox(height: 8),
+                    
                     Text(
-                      'privacy@voltgo.com',
-                      style: TextStyle(
+                      'For technical support and other inquiries',
+                      style: const TextStyle(
                         fontSize: 14,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
                       ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Support Email Button
+                    _buildEmailButton(
+                      email: 'support@voltgo.us',
+                      subject: 'Consulta de Soporte - VoltGo',
+                      icon: Icons.support_agent,
+                      label: 'Support',
+                      context: context,
                     ),
                   ],
                 ),
@@ -237,14 +282,59 @@ class PrivacyPolicyScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildEmailButton({
+    required String email,
+    required String subject,
+    required IconData icon,
+    required String label,
+    required BuildContext context,
+  }) {
+    return Container(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () => _sendEmail(email, subject),
+        icon: Icon(icon, color: Colors.white, size: 18),
+        label: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              email,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          elevation: 2,
+        ),
+      ),
+    );
+  }
+
   Widget _buildSection({
     required String title,
     required String content,
     required IconData icon,
   }) {
     return Card(
-            color: Colors.blue.shade50,
-
+      color: Colors.blue.shade50,
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),

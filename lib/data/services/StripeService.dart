@@ -204,37 +204,87 @@ static Future<bool> _pollForActiveSubscription({
       rethrow;
     }
   }
-  /// Obtiene la lista de planes/precios activos desde el backend.
-  static Future<List<StripePlan>> listPlans() async {
-    final url = Uri.parse('${Constants.baseUrl}/stripe/plans');
-    // Nota: Aunque el endpoint sea público, es buena práctica enviar el token si se tiene.
-    // Si tu endpoint es 100% público, puedes omitir la parte del token.
-    final token = await TokenStorage.getToken(); 
 
-    final headers = {
-      'Accept': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
+// En stripe_service.dart - versión temporal para debugging
 
-    try {
-      print('Getting Stripe plans...');
-      final response = await http.get(url, headers: headers);
-      print('Get Stripe plans response: ${response.statusCode}');
+static Future<List<StripePlan>> listPlans() async {
+  final url = Uri.parse('${Constants.baseUrl}/stripe/plans');
+  final token = await TokenStorage.getToken(); 
 
-      if (response.statusCode == 200) {
-        // La función helper decodifica la respuesta JSON en una lista de objetos StripePlan
-        return stripePlanFromJson(response.body);
-      } else {
-        final errorData = jsonDecode(response.body);
-        throw Exception(errorData['error'] ?? 'Error al obtener los planes de Stripe');
+  final headers = {
+    'Accept': 'application/json',
+    if (token != null) 'Authorization': 'Bearer $token',
+  };
+
+  try {
+    print('🔄 Getting Stripe plans...');
+    final response = await http.get(url, headers: headers);
+    print('📡 Response status: ${response.statusCode}');
+    
+    // ✅ MOSTRAR RESPUESTA COMPLETA PARA DEBUGGING
+    print('📋 Raw response body:');
+    print(response.body);
+
+    if (response.statusCode == 200) {
+      final jsonData = jsonDecode(response.body);
+      
+      // ✅ MOSTRAR ESTRUCTURA DE LA RESPUESTA
+      print('📊 Response structure: ${jsonData.runtimeType}');
+      if (jsonData is Map) {
+        print('📊 Map keys: ${jsonData.keys.toList()}');
       }
-    } catch (e) {
-      print('Error in listPlans: $e');
-      rethrow; // Re-lanza la excepción para que la UI pueda manejarla
-    }
-  }
 
-  /// Crea una intención de pago (Payment Intent) en el backend.
+      // Verificar si hay debug_info
+      if (jsonData is Map && jsonData['debug_info'] != null) {
+        print('🔍 DEBUG INFO FROM BACKEND:');
+        print('   Total products: ${jsonData['debug_info']['total_stripe_products']}');
+        print('   All product names: ${jsonData['debug_info']['all_product_names']}');
+        print('   Filtered count: ${jsonData['debug_info']['filtered_count']}');
+      }
+      
+      List<dynamic> plansArray;
+      if (jsonData is List) {
+        plansArray = jsonData;
+      } else if (jsonData is Map && jsonData['plans'] != null) {
+        plansArray = jsonData['plans'];
+      } else if (jsonData is Map && jsonData['data'] != null) {
+        plansArray = jsonData['data'];
+      } else {
+        throw Exception('Formato de respuesta no reconocido: ${jsonData.runtimeType}');
+      }
+
+      print('📦 Plans array length: ${plansArray.length}');
+
+      final List<StripePlan> plans = [];
+      
+      for (var planData in plansArray) {
+        try {
+          print('🔧 Processing plan: ${planData['product_name']}');
+          final plan = StripePlan.fromJson(planData as Map<String, dynamic>);
+          plans.add(plan);
+          print('✅ Plan added: ${plan.productName} - \$${plan.amount}');
+        } catch (e) {
+          print('❌ Error parsing plan: $planData, Error: $e');
+        }
+      }
+
+      print('🎉 Successfully parsed ${plans.length} plans');
+      print('📋 Plan names: ${plans.map((p) => p.productName).join(", ")}');
+      
+      return plans;
+
+    } else {
+      print('❌ Error response: ${response.statusCode}');
+      print('❌ Error body: ${response.body}');
+      final errorData = jsonDecode(response.body);
+      throw Exception(errorData['error'] ?? 'Error al obtener los planes');
+    }
+  } catch (e) {
+    print('💥 Error in listPlans: $e');
+    rethrow;
+  }
+}
+ 
   /// Devuelve un mapa que contiene el 'clientSecret' necesario para el SDK de Stripe en Flutter.
   static Future<Map<String, dynamic>> createPaymentIntent({required int serviceRequestId}) async {
     final url = Uri.parse('${Constants.baseUrl}/payments/create-intent');

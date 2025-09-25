@@ -22,6 +22,7 @@ import 'package:Voltgo_User/utils/PlanSelectionDialog.dart';
 import 'package:Voltgo_User/utils/RatingDialog.dart';
 import 'package:Voltgo_User/utils/TokenStorage.dart';
 import 'package:Voltgo_User/utils/constants.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -36,6 +37,7 @@ import 'package:intl/intl.dart';
 
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 enum PassengerStatus { idle, searching, driverAssigned, onTrip, completed }
 
@@ -6151,427 +6153,472 @@ bool _hasAvailableServices(UserSubscription? subscription) {
       ),
     );
   }
+// No olvides agregar estos imports al inicio del archivo
+// import 'package:flutter/gestures.dart';
+// import 'package:url_launcher/url_launcher.dart';
 
-// ✅ _buildDriverAssignedContent COMPLETO - PassengerMapScreen
-  Widget _buildDriverAssignedContent() {
-    final l10n = AppLocalizations.of(context); // ✅ AGREGAR
-    final bool isTechnicianOnSite = _activeRequest?.status == 'on_site';
+Widget _buildDriverAssignedContent() {
+  final l10n = AppLocalizations.of(context);
+  final bool isTechnicianOnSite = _activeRequest?.status == 'on_site';
 
-    return Column(
-      children: [
-        // ✅ MOSTRAR tiempo restante de cancelación (solo si no está en sitio)
-        if (!isTechnicianOnSite) _buildCancellationTimeWidget(),
+  return Column(
+    children: [
+      // ✅ MOSTRAR tiempo restante de cancelación (solo si no está en sitio)
+      if (!isTechnicianOnSite) _buildCancellationTimeWidget(),
 
-        // Widget de expiración forzada (si aplica)
-        _buildForceExpireButton(),
+      // Widget de expiración forzada (si aplica)
+      _buildForceExpireButton(),
 
-        Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ✅ Banner de estado adaptativo
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isTechnicianOnSite
-                        ? [
-                            Colors.purple.withOpacity(0.1),
-                            Colors.purple.withOpacity(0.05)
-                          ]
-                        : [
-                            Colors.green.withOpacity(0.1),
-                            Colors.green.withOpacity(0.05)
-                          ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: isTechnicianOnSite
-                          ? Colors.purple.withOpacity(0.3)
-                          : Colors.green.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isTechnicianOnSite
-                          ? Icons.location_on
-                          : Icons.check_circle,
-                      color: isTechnicianOnSite ? Colors.purple : Colors.green,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isTechnicianOnSite
-                                ? l10n
-                                    .technicianOnSite // ✅ CAMBIAR de 'Técnico en sitio'
-                                : l10n
-                                    .technicianConfirmed, // ✅ CAMBIAR de 'Técnico confirmado'
-                            style: GoogleFonts.inter(
-                              color: isTechnicianOnSite
-                                  ? Colors.purple.shade700
-                                  : Colors.green.shade700,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            isTechnicianOnSite
-                                ? l10n
-                                    .preparingEquipment // ✅ CAMBIAR de 'Preparando el equipo de carga'
-                                : (!_canStillCancel
-                                    ? l10n
-                                        .cannotCancelServiceNow // ✅ CAMBIAR de 'Ya no es posible cancelar'
-                                    : l10n
-                                        .technicianHeadingToLocation), // ✅ CAMBIAR de 'En camino hacia tu ubicación'
-                            style: GoogleFonts.inter(
-                              color: isTechnicianOnSite
-                                  ? Colors.purple.shade600
-                                  : (!_canStillCancel
-                                      ? Colors.red.shade600
-                                      : Colors.green.shade600),
-                              fontSize: 12,
-                            ),
-                          ),
+      Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ✅ Banner de estado adaptativo
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isTechnicianOnSite
+                      ? [
+                          Colors.purple.withOpacity(0.1),
+                          Colors.purple.withOpacity(0.05)
+                        ]
+                      : [
+                          Colors.green.withOpacity(0.1),
+                          Colors.green.withOpacity(0.05)
                         ],
-                      ),
-                    ),
-                  ],
                 ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: isTechnicianOnSite
+                        ? Colors.purple.withOpacity(0.3)
+                        : Colors.green.withOpacity(0.3)),
               ),
-
-              const SizedBox(height: 20),
-
-              // ✅ Fila superior con información del técnico
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  // Avatar del técnico
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.primary,
-                        width: 2,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        _driverName.isNotEmpty
-                            ? _driverName[0].toUpperCase()
-                            : 'T',
-                        style: GoogleFonts.inter(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
+                  Icon(
+                    isTechnicianOnSite
+                        ? Icons.location_on
+                        : Icons.check_circle,
+                    color: isTechnicianOnSite ? Colors.purple : Colors.green,
+                    size: 20,
                   ),
-                  const SizedBox(width: 16),
-
-                  // Columna con nombre, calificación e información del vehículo
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _driverName,
+                          isTechnicianOnSite
+                              ? l10n.technicianOnSite
+                              : l10n.technicianConfirmed,
                           style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                            color: isTechnicianOnSite
+                                ? Colors.purple.shade700
+                                : Colors.green.shade700,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(Icons.star,
-                                color: AppColors.warning, size: 16),
-                            const SizedBox(width: 4),
-                            Text(
-                              _driverRating,
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                           
-                          ],
+                        Text(
+                          isTechnicianOnSite
+                              ? l10n.preparingEquipment
+                              : (!_canStillCancel
+                                  ? l10n.cannotCancelServiceNow
+                                  : l10n.technicianHeadingToLocation),
+                          style: GoogleFonts.inter(
+                            color: isTechnicianOnSite
+                                ? Colors.purple.shade600
+                                : (!_canStillCancel
+                                    ? Colors.red.shade600
+                                    : Colors.green.shade600),
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
                   ),
-
-                  // Botones de acción
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          // Lógica para llamar al técnico
-                        },
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.success.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.phone,
-                              color: AppColors.success, size: 20),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _openChat,
-                        icon: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.info.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.message,
-                              color: AppColors.info, size: 20),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
-                         
- 
-              // ✅ Información del servicio
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(12),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ✅ Fila superior con información del técnico
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Avatar del técnico
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.primary,
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _driverName.isNotEmpty
+                          ? _driverName[0].toUpperCase()
+                          : 'T',
+                      style: GoogleFonts.inter(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
                 ),
-                child: Column(
-                  children: [
-                  
-                     if (!isTechnicianOnSite) ...[
-                      
-  
-                    ] else ...[
-                      const SizedBox(height: 12),
+                const SizedBox(width: 16),
+
+                // Columna con nombre, calificación e información del vehículo
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _driverName,
+                        style: GoogleFonts.inter(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Icon(Icons.build,
-                                  color: AppColors.primary, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n.equipmentStatus, // ✅ CAMBIAR de 'Estado del equipo'
-                                style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
+                          Icon(Icons.star,
+                              color: AppColors.warning, size: 16),
+                          const SizedBox(width: 4),
                           Text(
-                            l10n.preparingCharge, // ✅ CAMBIAR de 'Preparando carga'
+                            _driverRating,
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Colors.purple,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                         ],
                       ),
                     ],
-
-                    
-                  ],
+                  ),
                 ),
-              ),
 
-              // ✅ Barra de progreso o mensaje de espera según el estado
-              if (!isTechnicianOnSite) ...[
-                const SizedBox(height: 20),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                // Botones de acción
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    
-                  ],
-                ),
-              ] else ...[
-                const SizedBox(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.hourglass_empty,
-                          color: Colors.purple, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          l10n.technicianPreparingEquipment, // ✅ CAMBIAR de 'El técnico está preparando el equipo. El servicio comenzará pronto.'
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: Colors.purple.shade700,
-                          ),
+                    IconButton(
+                      onPressed: () {
+                        // Lógica para llamar al técnico
+                      },
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withOpacity(0.1),
+                          shape: BoxShape.circle,
                         ),
+                        child: Icon(Icons.phone,
+                            color: AppColors.success, size: 20),
                       ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      onPressed: _openChat,
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.info.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.message,
+                            color: AppColors.info, size: 20),
+                      ),
+                    ),
+                  ],
                 ),
               ],
+            ),
 
-              const SizedBox(height: 20),
-
-              // ✅ Botones adaptados según el estado
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            // ✅ Información del servicio
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
                 children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.navigation,
-                        size: 20, color: Colors.white),
-                    label: Text(isTechnicianOnSite
-                        ? l10n
-                            .viewTechnicianOnSite // ✅ CAMBIAR de 'Ver técnico en sitio'
-                        : l10n
-                            .followInRealTime), // ✅ CAMBIAR de 'Seguir en tiempo real'
-
-                    onPressed: _openRealTimeTracking,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isTechnicianOnSite
-                          ? Colors.purple
-                          : AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      textStyle: GoogleFonts.inter(
-                          fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      // Botón de Cancelar (deshabilitado si está en sitio)
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: (_canStillCancel && !isTechnicianOnSite)
-                              ? _cancelActiveService
-                              : null,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.error,
-                            side: BorderSide(
-                              color: (_canStillCancel && !isTechnicianOnSite)
-                                  ? AppColors.error
-                                  : Colors.grey.shade400,
+                  if (!isTechnicianOnSite)
+                    ...[
+                    
+                  ] else ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.build,
+                                color: AppColors.primary, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              l10n.equipmentStatus,
+                              style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  color: AppColors.textSecondary),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            textStyle: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600, fontSize: 16),
+                          ],
+                        ),
+                        Text(
+                          l10n.preparingCharge,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.purple,
                           ),
-                          child: Text(isTechnicianOnSite
-                              ? l10n
-                                  .notCancellable // ✅ CAMBIAR de 'No cancelable'
-                              : l10n.cancel), // ✅ YA EXISTE
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // ✅ Barra de progreso o mensaje de espera según el estado
+            if (!isTechnicianOnSite) ...[
+              const SizedBox(height: 20),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [],
+              ),
+            ] else ...[
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.hourglass_empty,
+                        color: Colors.purple, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.technicianPreparingEquipment,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: Colors.purple.shade700,
                         ),
                       ),
-                      const SizedBox(width: 12),
-
-                      // Botón de Chat
-                     // Botón de Chat
-Expanded(
-  child: Stack(
-    clipBehavior: Clip.none,
-    children: [
-      SizedBox(
-        width: double.infinity, // ✅ ASEGURAR QUE USE TODO EL ANCHO
-        child: ElevatedButton(
-          onPressed: _openChat,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.lightGreen,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)
-            ),
-            textStyle: GoogleFonts.inter(
-              fontWeight: FontWeight.w600, 
-              fontSize: 16
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center, // ✅ CENTRAR CONTENIDO
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.chat, size: 20, color: Colors.white),
-              const SizedBox(width: 8), // ✅ ESPACIO ENTRE ICONO Y TEXTO
-              Text(l10n.chat),
-            ],
-          ),
-        ),
-      ),
-      // ✅ BADGE POSICIONADO CORRECTAMENTE
-      Consumer<ChatNotificationProvider>(
-        builder: (context, notificationProvider, child) {
-          final unreadCount = notificationProvider.getUnreadCount(_activeRequest?.id ?? 0);
-          
-          if (unreadCount <= 0) return const SizedBox.shrink();
-          
-          return Positioned(
-            right: 8,
-            top: -8,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 20,
-                minHeight: 20,
-              ),
-              child: Text(
-                unreadCount > 99 ? '99+' : unreadCount.toString(),
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
+                    ),
+                  ],
                 ),
-                textAlign: TextAlign.center,
               ),
-            ),
-          );
-        },
-      ),
-    ],
-  ),
-), 
-                    ],
+            ],
+
+            const SizedBox(height: 20),
+
+            // ✅ NUEVO: Mensaje de ayuda discreto
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.amber.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.amber.shade700,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: Colors.amber.shade800,
+                        ),
+                        children: [
+                          TextSpan(text:  'Need help or notice something unusual? Call us at '),
+                          TextSpan(
+                            text: '1-833-486-5846',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.amber.shade900,
+                              decoration: TextDecoration.underline,
+                            ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () async {
+                                // Abrir marcador telefónico
+                                final Uri phoneUri = Uri(scheme: 'tel', path: '18334865846');
+                                if (await canLaunchUrl(phoneUri)) {
+                                  await launchUrl(phoneUri);
+                                }
+                              },
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ✅ Botones adaptados según el estado
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.navigation,
+                      size: 20, color: Colors.white),
+                  label: Text(isTechnicianOnSite
+                      ? l10n.viewTechnicianOnSite
+                      : l10n.followInRealTime),
+                  onPressed: _openRealTimeTracking,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isTechnicianOnSite
+                        ? Colors.purple
+                        : AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    textStyle: GoogleFonts.inter(
+                        fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    // Botón de Cancelar (deshabilitado si está en sitio)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: (_canStillCancel && !isTechnicianOnSite)
+                            ? _cancelActiveService
+                            : null,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.error,
+                          side: BorderSide(
+                            color: (_canStillCancel && !isTechnicianOnSite)
+                                ? AppColors.error
+                                : Colors.grey.shade400,
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          textStyle: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600, fontSize: 16),
+                        ),
+                        child: Text(isTechnicianOnSite
+                            ? l10n.notCancellable
+                            : l10n.cancel),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+
+                    // Botón de Chat
+                    Expanded(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _openChat,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.lightGreen,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                textStyle: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.chat,
+                                      size: 20, color: Colors.white),
+                                  const SizedBox(width: 8),
+                                  Text(l10n.chat),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // ✅ BADGE POSICIONADO CORRECTAMENTE
+                          Consumer<ChatNotificationProvider>(
+                            builder: (context, notificationProvider, child) {
+                              final unreadCount = notificationProvider
+                                  .getUnreadCount(_activeRequest?.id ?? 0);
+
+                              if (unreadCount <= 0)
+                                return const SizedBox.shrink();
+
+                              return Positioned(
+                                right: 8,
+                                top: -8,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: Colors.white, width: 2),
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 20,
+                                    minHeight: 20,
+                                  ),
+                                  child: Text(
+                                    unreadCount > 99
+                                        ? '99+'
+                                        : unreadCount.toString(),
+                                    style: GoogleFonts.inter(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
  
 
 // ✅ MÉTODO _openRealTimeTracking CORREGIDO:

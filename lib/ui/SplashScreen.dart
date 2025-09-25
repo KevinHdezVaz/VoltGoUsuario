@@ -92,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Padding(
                 padding: EdgeInsets.only(bottom: 40.0),
                 child: Text(
-                  'Powered by Voltgo',
+                  'Powered by DJ’S Mobile Auto Solutions LLC',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,

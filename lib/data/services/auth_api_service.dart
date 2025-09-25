@@ -10,7 +10,7 @@ import 'package:Voltgo_User/data/models/LOGIN/logout_response.dart';
 import 'package:Voltgo_User/data/services/UserCacheService.dart';
 import 'package:Voltgo_User/utils/TokenStorage.dart';
 import 'package:Voltgo_User/utils/constants.dart';
-import 'dart:developer' as developer;
+  import 'dart:developer' as developer;
 
 // NUEVAS IMPORTACIONES PARA GOOGLE SIGN IN
 import 'package:firebase_auth/firebase_auth.dart';
@@ -523,6 +523,91 @@ static Future<RegisterResponse> updateUserProfile({
       return RegisterResponse(success: false, error: 'Error de conexión: $e');
     }
   }
+
+
+static Future<RegisterResponse> deleteAccount() async {
+  final token = await TokenStorage.getToken();
+  
+  if (token == null) {
+    return RegisterResponse(
+      success: false,
+      error: 'No se encontró token de autenticación',
+    );
+  }
+
+  final url = Uri.parse('${Constants.baseUrl}/auth/user/delete-account');
+
+  try {
+    developer.log('Enviando solicitud de eliminación de cuenta...');
+    
+    final response = await http.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    developer.log('Respuesta eliminación cuenta - Status: ${response.statusCode}');
+    developer.log('Cuerpo respuesta: ${response.body}');
+
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(response.body);
+      
+      if (jsonResponse['success'] == true) {
+        // Limpiar datos locales
+        await TokenStorage.deleteToken();
+        await UserCacheService.clearUserData();
+        
+        // Cerrar sesiones de proveedores externos
+        try {
+          await _googleSignIn.signOut();
+          await _auth.signOut();
+          developer.log('Sesiones externas cerradas');
+        } catch (e) {
+          developer.log('Error cerrando sesiones externas: $e');
+        }
+        
+        developer.log('Cuenta eliminada exitosamente');
+        
+        return RegisterResponse(
+          success: true,
+          user: null,
+          token: null,
+        );
+      } else {
+        return RegisterResponse(
+          success: false,
+          error: jsonResponse['message'] ?? 'Error eliminando la cuenta',
+        );
+      }
+    } else {
+      String errorMessage = 'Error eliminando la cuenta';
+      try {
+        final jsonResponse = jsonDecode(response.body);
+        errorMessage = jsonResponse['message'] ?? 
+                      jsonResponse['error'] ?? 
+                      errorMessage;
+      } catch (e) {
+        /* Mantener mensaje por defecto */
+      }
+      
+      return RegisterResponse(
+        success: false,
+        error: errorMessage,
+      );
+    }
+  } catch (e) {
+    developer.log('Excepción eliminando cuenta: $e');
+    return RegisterResponse(
+      success: false,
+      error: 'Error de conexión: ${e.toString()}',
+    );
+  }
+}
+
+
 
 
 // Agregar este método en AuthService
